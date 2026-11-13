@@ -27,14 +27,14 @@ PACE_EVERY = 5
 
 def _lap(t: float) -> str:
     m, r = divmod(t, 60)
-    return dec(f"{int(m)} minute {r:.1f}") if m else dec(L(f"{r:.1f} secondes", f"{r:.1f} seconds"))
+    return dec(f"{int(m)} minute {r:.1f}") if m else dec(L(f"{r:.1f} secondes", f"{r:.1f} seconds", f"{r:.1f} Sekunden"))
 
 
 def _dix(x: float) -> str:
     d = round(abs(x) * 10)
     if d >= 10:
-        return dec(L(f"{abs(x):.1f} seconde" + ("s" if abs(x) >= 2 else ""), f"{abs(x):.1f} seconds"))
-    return L(f"{max(1, d)} dixième" + ("s" if d > 1 else ""), f"{max(1, d)} tenth" + ("s" if d > 1 else ""))
+        return dec(L(f"{abs(x):.1f} seconde" + ("s" if abs(x) >= 2 else ""), f"{abs(x):.1f} seconds", f"{abs(x):.1f} Sekunden"))
+    return L(f"{max(1, d)} dixième" + ("s" if d > 1 else ""), f"{max(1, d)} tenth" + ("s" if d > 1 else ""), f"{max(1, d)} Zehntel")
 
 
 # ===================================================================== pénalités
@@ -58,25 +58,25 @@ class Penalties:
             say(None, L("Pénalité ! Il faut la purger aux stands, regarde l'écran pour savoir si c'est un drive-through "
                         f"ou un stop and go. Normalement tu as {PENALTY_LAPS} tours.",
                         "Penalty! You need to serve it in the pits, check the screen for drive-through or stop and go. "
-                        f"You normally have {PENALTY_LAPS} laps."), urgent=True)
+                        f"You normally have {PENALTY_LAPS} laps.", f"Strafe! Du musst sie in der Box absitzen, schau auf den Bildschirm: Drive-Through oder Stop-and-Go. Normalerweise hast du {PENALTY_LAPS} Runden."), urgent=True)
         elif n < self.count:
             if n == 0:
                 self.given_lap = None
-                say(None, pick("pen_ok", [("Pénalité purgée, c'est bon.", "Penalty served, all good."),
-                                          ("C'est bon, pénalité effacée. On repart.", "Done, penalty cleared. Let's go."),
-                                          ("Pénalité purgée, on n'en parle plus. Remets du rythme.", "Penalty served, forget it. Build the pace back up.")]))
+                say(None, pick("pen_ok", [("Pénalité purgée, c'est bon.", "Penalty served, all good.", "Strafe abgesessen, alles gut."),
+                                          ("C'est bon, pénalité effacée. On repart.", "Done, penalty cleared. Let's go.", "Erledigt, Strafe weg. Weiter geht's."),
+                                          ("Pénalité purgée, on n'en parle plus. Remets du rythme.", "Penalty served, forget it. Build the pace back up.", "Strafe abgesessen, vergiss sie. Bau das Tempo wieder auf.")]))
             else:
-                say(None, L(f"Une pénalité purgée, il en reste {n}.", f"One penalty served, {n} left."))
+                say(None, L(f"Une pénalité purgée, il en reste {n}.", f"One penalty served, {n} left.", f"Eine Strafe abgesessen, noch {n} offen."))
         elif n and self.given_lap is not None and s.laps_done != self.said_lap and not s.in_pits:
             self.said_lap = s.laps_done
             left = PENALTY_LAPS - (s.laps_done - self.given_lap)
             if left == 1:
                 say(None, L("Dernier tour pour purger la pénalité, rentre au stand à la fin de ce tour !",
-                            "Last lap to serve the penalty, box at the end of this lap!"), urgent=True)
+                            "Last lap to serve the penalty, box at the end of this lap!", "Letzte Runde, um die Strafe abzusitzen, Box am Ende dieser Runde!"), urgent=True)
             elif left > 1:
-                say(None, pick("pen_left", [(f"Pénalité toujours à purger, plus que {left} tours.", f"Penalty still to serve, {left} laps left."),
-                                            (f"N'oublie pas la pénalité : il te reste {left} tours pour la faire.", f"Don't forget the penalty: {left} laps left to serve it."),
-                                            (f"Rappel, pénalité à purger dans les {left} prochains tours.", f"Reminder, penalty to serve within {left} laps.")]))
+                say(None, pick("pen_left", [(f"Pénalité toujours à purger, plus que {left} tours.", f"Penalty still to serve, {left} laps left.", f"Strafe noch offen, noch {left} Runden."),
+                                            (f"N'oublie pas la pénalité : il te reste {left} tours pour la faire.", f"Don't forget the penalty: {left} laps left to serve it.", f"Vergiss die Strafe nicht: noch {left} Runden, um sie abzusitzen."),
+                                            (f"Rappel, pénalité à purger dans les {left} prochains tours.", f"Reminder, penalty to serve within {left} laps.", f"Erinnerung: Strafe innerhalb von {left} Runden absitzen.")]))
         self.count = n
 
     def ui(self, s) -> dict:
@@ -131,24 +131,24 @@ class Undercut:
                              "Demande-moi de préparer le stand si tu veux y aller.",
                              f"You're {s.gap_class_ahead:.1f} seconds behind {s.ahead.get('name') or 'the car ahead'}. "
                              "Pit a lap before him on new tyres and you can undercut him. "
-                             "Ask me to prepare the pit stop if you want to go for it."))
+                             "Ask me to prepare the pit stop if you want to go for it.", f"Du bist {s.gap_class_ahead:.1f} Sekunden hinter {s.ahead.get('name') or 'dem Vordermann'}. Komm eine Runde vor ihm auf neue Reifen rein, dann kannst du ihn undercutten. Sag mir, dass ich den Stopp vorbereiten soll, wenn du das willst."))
 
     def _ahead_pits(self, s, plan, say, name) -> None:
         if not plan.ready:
             return
         if not plan.stops_needed:
             self._say(say, L(f"{name} rentre au stand. Toi tu vas au bout sans t'arrêter : tu prends sa place.",
-                             f"{name} is pitting. You go to the end without stopping: you take his place."))
+                             f"{name} is pitting. You go to the end without stopping: you take his place.", f"{name} geht an die Box. Du fährst ohne Stopp durch: Du übernimmst seinen Platz."))
         elif plan.laps_until_box is not None and plan.laps_until_box >= 2:
             n = min(plan.laps_until_box, 3)
             self._say(say, L(f"{name} rentre au stand. Pousse à fond les {n} prochains tours pendant qu'il ressort "
                              "avec des pneus froids : tu peux le passer à l'overcut.",
                              f"{name} is pitting. Push hard for the next {n} laps while he's on cold tyres: "
-                             "you can overcut him."))
+                             "you can overcut him.", f"{name} geht an die Box. Push voll in den nächsten {n} Runden, solange er auf kalten Reifen ist: Du kannst ihn overcutten."))
         else:
             self._say(say, L(f"{name} rentre au stand en même temps que toi. Arrêt propre et sortie des stands "
                              "nickel, tu peux ressortir devant.",
-                             f"{name} is pitting at the same time. Clean stop and a tidy pit exit, you can come out ahead."))
+                             f"{name} is pitting at the same time. Clean stop and a tidy pit exit, you can come out ahead.", f"{name} stoppt zur gleichen Zeit. Sauberer Stopp und saubere Boxenausfahrt, dann kommst du vor ihm raus."))
 
     def _behind_pits(self, s, plan, say) -> None:
         if not plan.ready or not plan.stops_needed or plan.laps_until_box is None:
@@ -158,7 +158,7 @@ class Undercut:
             self._say(say, L(f"La voiture derrière rentre au stand, elle était à {dec(f'{g:.1f}')} seconde. "
                              "Rentre au prochain tour pour couvrir l'undercut, ou pousse fort ce tour-ci.",
                              f"The car behind is pitting, it was {g:.1f} seconds back. "
-                             "Box next lap to cover the undercut, or push hard this lap."))
+                             "Box next lap to cover the undercut, or push hard this lap.", f"Das Auto hinter dir geht an die Box, es war {g:.1f} Sekunden zurück. Komm nächste Runde rein, um den Undercut abzudecken, oder push diese Runde voll."))
 
 
 # ===================================================================== rythme
@@ -187,21 +187,21 @@ class Pace:
         prev = laps[-2 * PACE_EVERY:-PACE_EVERY] if len(laps) >= 2 * PACE_EVERY else None
         med, sd = statistics.median(last), statistics.pstdev(last)
         self.blocks.append((len(laps), med, sd))
-        parts = [L(f"Rythme moyen {_lap(med)} sur tes 5 derniers tours", f"Average pace {_lap(med)} over your last 5 laps")]
+        parts = [L(f"Rythme moyen {_lap(med)} sur tes 5 derniers tours", f"Average pace {_lap(med)} over your last 5 laps", f"Schnitt {_lap(med)} über deine letzten 5 Runden")]
         if prev:
             d = med - statistics.median(prev)
             if d > 0.25:
                 wear = min(s.tyre_wear) * 100 if s.tyre_wear else None
-                parts.append(L(f"tu perds {_dix(d)} par tour par rapport aux 5 d'avant", f"you're losing {_dix(d)} a lap versus the 5 before")
-                             + (L(f", les pneus sont à {wear:.0f} %", f", tyres at {wear:.0f} %") if wear is not None else ""))
+                parts.append(L(f"tu perds {_dix(d)} par tour par rapport aux 5 d'avant", f"you're losing {_dix(d)} a lap versus the 5 before", f"du verlierst {_dix(d)} pro Runde gegenüber den 5 davor")
+                             + (L(f", les pneus sont à {wear:.0f} %", f", tyres at {wear:.0f} %", f", Reifen bei {wear:.0f} %") if wear is not None else ""))
             elif d < -0.25:
-                parts.append(L(f"tu as gagné {_dix(d)} par tour, continue", f"you've gained {_dix(d)} a lap, keep it up"))
+                parts.append(L(f"tu as gagné {_dix(d)} par tour, continue", f"you've gained {_dix(d)} a lap, keep it up", f"du hast {_dix(d)} pro Runde gewonnen, weiter so"))
             else:
-                parts.append(L("rythme stable", "steady pace"))
+                parts.append(L("rythme stable", "steady pace", "gleichmäßiges Tempo"))
         if sd < 0.3:
-            parts.append(L("très régulier", "very consistent"))
+            parts.append(L("très régulier", "very consistent", "sehr konstant"))
         elif sd > 0.8:
-            parts.append(L("un peu irrégulier, vise la régularité", "a bit inconsistent, aim for consistency"))
+            parts.append(L("un peu irrégulier, vise la régularité", "a bit inconsistent, aim for consistency", "etwas unkonstant, achte auf Konstanz"))
         say(None, ", ".join(parts) + ".")
 
 
@@ -261,7 +261,7 @@ class FuelBook:
         fpl, avg = d.get("fpl"), d.get("avg")
         if not fpl:
             out["why"] = L("Fais au moins 3 tours propres sur ce circuit pour que je mesure ta conso.",
-                           "Do at least 3 clean laps on this track so I can measure your consumption.")
+                           "Do at least 3 clean laps on this track so I can measure your consumption.", "Fahr mindestens 3 saubere Runden auf dieser Strecke, damit ich deinen Verbrauch messen kann.")
             return out
         if d.get("race_laps"):
             laps = d["race_laps"]
@@ -269,7 +269,7 @@ class FuelBook:
             laps = math.ceil(d["race_min"] * 60 / avg)
         else:
             out["why"] = L("Indique la durée de la course pour calculer l'essence de départ.",
-                           "Enter the race length to work out the starting fuel.")
+                           "Enter the race length to work out the starting fuel.", "Gib die Renndauer ein, um den Startsprit zu berechnen.")
             return out
         litres = math.ceil((laps + 1) * fpl)        # + 1 tour : tour de formation et marge
         cap = d.get("cap")
@@ -277,7 +277,7 @@ class FuelBook:
         if stop:
             litres = int(cap)
         out.update({"laps": laps, "litres": litres, "stop": stop,
-                    "why": dec(L(f"{laps} tours × {fpl:.2f} L + 1 tour de marge", f"{laps} laps × {fpl:.2f} L + 1 lap margin")
+                    "why": dec(L(f"{laps} tours × {fpl:.2f} L + 1 tour de marge", f"{laps} laps × {fpl:.2f} L + 1 lap margin", f"{laps} Runden × {fpl:.2f} L + 1 Runde Reserve")
                                + (L(" — plus que le réservoir : plein, et un arrêt sera nécessaire",
-                                    " — more than the tank: full tank, and a stop will be needed") if stop else ""))})
+                                    " — more than the tank: full tank, and a stop will be needed", " – mehr als der Tank: voller Tank, und ein Stopp wird nötig") if stop else ""))})
         return out

@@ -61,10 +61,11 @@
 <script>
 const $ = id => document.getElementById(id);
 let LANG = "fr";
-const T = (fr, en) => LANG === "en" ? en : fr;
+const DE = {"Waiting for the game…": "Warte auf das Spiel…", "Call": "Ansage", "Lap": "Runde", "Fuel": "Sprit", "DEBRIEFS": "DEBRIEFS", "FULL · WORKSHOP": "VOLL · WERKSTATT", "game detected": "Spiel erkannt", "waiting for the game": "warte auf das Spiel", "ON TRACK": "AUF DER STRECKE", "YELLOW": "GELB", "Pit this lap": "Diese Runde rein", "CHEQUERED": "ZIELFLAGGE", "ahead": "vorne", "behind": "hinten", "left": "übrig", "no reference": "keine Referenz", "best lap": "beste Runde", "laps": "Runden", "PENALTY TO SERVE": "STRAFE OFFEN", "LAP": "RUNDE", "PC unreachable": "PC nicht erreichbar"};
+const T = (fr, en, de) => LANG === "de" ? (de ?? DE[en] ?? en) : LANG === "en" ? en : fr;
 function applyLang() {
   document.documentElement.lang = LANG;
-  document.querySelectorAll("[data-en]").forEach(el => { if (el.dataset.fr === undefined) el.dataset.fr = el.innerHTML; el.innerHTML = LANG === "en" ? el.dataset.en : el.dataset.fr; });
+  document.querySelectorAll("[data-en]").forEach(el => { if (el.dataset.fr === undefined) el.dataset.fr = el.innerHTML; el.innerHTML = LANG === "en" ? el.dataset.en : LANG === "de" ? (DE[el.dataset.en] ?? el.dataset.en) : el.dataset.fr; });
 }
 const SESSION_EN = { course: "race", qualif: "qualifying", essais: "practice", warmup: "warm-up" };
 const fmtTime = s => { if (s == null) return "–"; const m = Math.floor(s / 60), r = Math.floor(s % 60); return `${m}:${String(r).padStart(2, "0")}`; };
@@ -81,15 +82,15 @@ function render(d) {
   if (d.update && d.update.version) $("ver").textContent = "v" + d.update.version;
   const up = d.update || {};
   $("upd").style.display = up.latest ? "block" : "none";
-  if (up.latest) $("upd").textContent = T(`Mise à jour ${up.latest} disponible : télécharge-la sur le PC`, `Update ${up.latest} available: download it on the PC`);
+  if (up.latest) $("upd").textContent = T(`Mise à jour ${up.latest} disponible : télécharge-la sur le PC`, `Update ${up.latest} available: download it on the PC`, `Update ${up.latest} verfügbar: lade es auf dem PC herunter`);
   $("wait").hidden = !!s.on_track; $("dash").hidden = !s.on_track;
-  $("sess").textContent = s.on_track ? `${s.track} · ${T(s.session, SESSION_EN[s.session] || s.session)}` : (s.connected ? T("jeu détecté", "game detected") : T("en attente du jeu", "waiting for the game"));
+  $("sess").textContent = s.on_track ? `${s.track} · ${T(s.session, SESSION_EN[s.session] || s.session, {course: "Rennen", qualif: "Qualifying", essais: "Training", warmup: "Warm-up"}[s.session])}` : (s.connected ? T("jeu détecté", "game detected") : T("en attente du jeu", "waiting for the game"));
   if (!s.on_track) return;
   const last = radio.find(m => !m.me);
   let title = T("EN PISTE", "ON TRACK"), text = "", alert = false;
   if (s.yellow) { title = T("DRAPEAU JAUNE", "YELLOW"); alert = true; }
   else if (p.ready && p.stops_needed > 0 && p.laps_until_box <= 1) { title = "BOX BOX"; alert = true; text = T("Rentre ce tour", "Pit this lap"); }
-  else if (p.ready && p.stops_needed > 0 && p.laps_until_box <= 3) { title = T(`BOX DANS ${p.laps_until_box}`, `BOX IN ${p.laps_until_box}`); text = T(`fin du tour ${p.box_lap}`, `end of lap ${p.box_lap}`); }
+  else if (p.ready && p.stops_needed > 0 && p.laps_until_box <= 3) { title = T(`BOX DANS ${p.laps_until_box}`, `BOX IN ${p.laps_until_box}`, `BOX IN ${p.laps_until_box}`); text = T(`fin du tour ${p.box_lap}`, `end of lap ${p.box_lap}`, `Ende Runde ${p.box_lap}`); }
   else if (s.game_phase === 8) title = T("DAMIER", "CHEQUERED");
   $("calltitle").textContent = title; $("calltext").textContent = text; $("call").className = "card" + (alert ? " alert" : "");
   $("pos").textContent = `P${s.class_position || s.position || "–"}`;
@@ -105,7 +106,7 @@ function render(d) {
   $("fuelsub").textContent = p.range_laps != null ? `${T("tours", "laps")} · ${(s.fuel || 0).toFixed(1)} L` : "";
   const pn = d.penalty || {};
   $("pen").style.display = pn.count ? "block" : "none";
-  if (pn.count) $("pen").textContent = `${T("PÉNALITÉ À PURGER", "PENALTY TO SERVE")}${pn.laps_left != null ? ` · ${pn.laps_left} ${T("TOUR", "LAP")}${pn.laps_left > 1 ? "S" : ""}` : ""}`;
+  if (pn.count) $("pen").textContent = `${T("PÉNALITÉ À PURGER", "PENALTY TO SERVE")}${pn.laps_left != null ? ` · ${pn.laps_left} ${T("TOUR", "LAP")}${pn.laps_left > 1 ? (LANG === "de" ? "N" : "S") : ""}` : ""}`;
   $("last").textContent = last ? last.text : "–";
 }
 async function tick() {

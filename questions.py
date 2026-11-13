@@ -29,49 +29,49 @@ def _f(v: float, d: int = 1) -> str:
 
 def _laptime(s: float | None) -> str:
     if not s:
-        return L("pas encore de temps", "no time yet")
+        return L("pas encore de temps", "no time yet", "noch keine Zeit")
     m, r = divmod(s, 60)
-    return dec(f"{int(m)} minute {r:.1f}") if m else dec(L(f"{r:.1f} secondes", f"{r:.1f} seconds"))
+    return dec(f"{int(m)} minute {r:.1f}") if m else dec(L(f"{r:.1f} secondes", f"{r:.1f} seconds", f"{r:.1f} Sekunden"))
 
 
 def _tyre_names(idx: list[int]) -> str:
-    names = L("avant gauche|avant droit|arrière gauche|arrière droit", "front left|front right|rear left|rear right").split("|")
+    names = L("avant gauche|avant droit|arrière gauche|arrière droit", "front left|front right|rear left|rear right", "vorne links|vorne rechts|hinten links|hinten rechts").split("|")
     return ", ".join(names[i] for i in idx)
 
 
 # --------------------------------------------------------------------- sujets
 def fuel(s: Snapshot, p: Plan) -> str:
     q = _f(s.fuel, 0)
-    out = pick("a_fuel", [(f"Il te reste {q} litres.", f"You have {q} litres left."),
-                          (f"{q} litres dans le réservoir.", f"{q} litres in the tank."),
-                          (f"Côté essence, tu as {q} litres.", f"Fuel-wise, you've got {q} litres.")])
+    out = pick("a_fuel", [(f"Il te reste {q} litres.", f"You have {q} litres left.", f"Du hast noch {q} Liter."),
+                          (f"{q} litres dans le réservoir.", f"{q} litres in the tank.", f"{q} Liter im Tank."),
+                          (f"Côté essence, tu as {q} litres.", f"Fuel-wise, you've got {q} litres.", f"Beim Sprit hast du {q} Liter.")])
     if p.fuel_per_lap:
         c, n = _f(p.fuel_per_lap), _f(s.fuel / p.fuel_per_lap)
         out += " " + pick("a_fuel2", [(f"Tu consommes {c} par tour, ça fait {n} tours d'essence.",
-                                       f"You're using {c} a lap, that's {n} laps of fuel."),
-                                      (f"À {c} litres par tour, tu tiens {n} tours.", f"At {c} litres a lap, you can do {n} laps."),
-                                      (f"Ça te laisse {n} tours, avec une conso de {c} par tour.", f"That gives you {n} laps, using {c} a lap.")])
+                                       f"You're using {c} a lap, that's {n} laps of fuel.", f"Du verbrauchst {c} pro Runde, das sind {n} Runden Sprit."),
+                                      (f"À {c} litres par tour, tu tiens {n} tours.", f"At {c} litres a lap, you can do {n} laps.", f"Mit {c} Litern pro Runde schaffst du {n} Runden."),
+                                      (f"Ça te laisse {n} tours, avec une conso de {c} par tour.", f"That gives you {n} laps, using {c} a lap.", f"Das reicht für {n} Runden, bei {c} pro Runde.")])
     else:
         out += L(" J'ai besoin d'encore un ou deux tours propres pour calculer la conso.",
-                 " I need one or two more clean laps to work out consumption.")
+                 " I need one or two more clean laps to work out consumption.", " Ich brauche noch ein oder zwei saubere Runden, um den Verbrauch zu berechnen.")
     if p.stops_needed == 0:
-        out += " " + pick("a_fuel3", [("C'est bon pour aller au bout.", "That's enough to the finish."),
-                                      ("Largement de quoi finir.", "Plenty to make the finish."),
-                                      ("Tu es tranquille jusqu'à l'arrivée.", "You're fine all the way to the flag.")])
+        out += " " + pick("a_fuel3", [("C'est bon pour aller au bout.", "That's enough to the finish.", "Das reicht bis ins Ziel."),
+                                      ("Largement de quoi finir.", "Plenty to make the finish.", "Locker genug bis ins Ziel."),
+                                      ("Tu es tranquille jusqu'à l'arrivée.", "You're fine all the way to the flag.", "Du bist entspannt bis zur Flagge.")])
     if p.save_per_lap:
         out += L(f" Si tu économises {_f(p.save_per_lap)} litre par tour, on évite l'arrêt.",
-                 f" Save {_f(p.save_per_lap)} litres a lap and we skip the stop.")
+                 f" Save {_f(p.save_per_lap)} litres a lap and we skip the stop.", f" Spar {_f(p.save_per_lap)} Liter pro Runde, dann sparen wir uns den Stopp.")
     return out
 
 
 def energy(s: Snapshot, p: Plan) -> str:
     if s.energy is None:
         return L("Pas d'énergie virtuelle sur cette voiture, c'est l'essence qui compte.",
-                 "No virtual energy on this car, fuel is what counts.")
-    out = L(f"Énergie à {_f(s.energy * 100, 0)} %.", f"Energy at {_f(s.energy * 100, 0)} %.")
+                 "No virtual energy on this car, fuel is what counts.", "Keine virtuelle Energie bei diesem Auto, es zählt der Sprit.")
+    out = L(f"Énergie à {_f(s.energy * 100, 0)} %.", f"Energy at {_f(s.energy * 100, 0)} %.", f"Energie bei {_f(s.energy * 100, 0)} %.")
     if p.energy_per_lap:
         out += L(f" {_f(p.energy_per_lap * 100)} % par tour, soit {_f(s.energy / p.energy_per_lap)} tours.",
-                 f" {_f(p.energy_per_lap * 100)} % a lap, so {_f(s.energy / p.energy_per_lap)} laps.")
+                 f" {_f(p.energy_per_lap * 100)} % a lap, so {_f(s.energy / p.energy_per_lap)} laps.", f" {_f(p.energy_per_lap * 100)} % pro Runde, also {_f(s.energy / p.energy_per_lap)} Runden.")
     return out
 
 
@@ -79,55 +79,55 @@ def laps(s: Snapshot, p: Plan) -> str:
     parts = []
     if s.max_laps:
         n = max(0, s.max_laps - s.laps_done)
-        parts.append(pick("a_laps", [(f"Il reste {n} tours.", f"{n} laps to go."), (f"Encore {n} tours.", f"{n} more laps."),
-                                     (f"Plus que {n} tours avant l'arrivée.", f"Just {n} laps to the finish.")]))
+        parts.append(pick("a_laps", [(f"Il reste {n} tours.", f"{n} laps to go.", f"Noch {n} Runden."), (f"Encore {n} tours.", f"{n} more laps.", f"Noch {n} Runden zu fahren."),
+                                     (f"Plus que {n} tours avant l'arrivée.", f"Just {n} laps to the finish.", f"Nur noch {n} Runden bis ins Ziel.")]))
     elif s.time_left is not None:
         m = int(s.time_left // 60)
         left = round(p.laps_to_finish) if p.laps_to_finish else None
         if s.time_left <= 0 or (left is not None and left <= 1):
-            parts.append(L("C'est le dernier tour, donne tout !", "This is the last lap, give it everything!"))
+            parts.append(L("C'est le dernier tour, donne tout !", "This is the last lap, give it everything!", "Das ist die letzte Runde, gib alles!"))
         elif m < 1:
-            parts.append(L(f"Moins d'une minute, encore environ {left} tours.", f"Under a minute, about {left} laps to go.") if left
-                         else L("Moins d'une minute.", "Under a minute to go."))
+            parts.append(L(f"Moins d'une minute, encore environ {left} tours.", f"Under a minute, about {left} laps to go.", f"Unter einer Minute, noch etwa {left} Runden.") if left
+                         else L("Moins d'une minute.", "Under a minute to go.", "Unter einer Minute."))
         else:
-            parts.append(L(f"Il reste {m} minute{'s' if m > 1 else ''}", f"{m} minute{'s' if m > 1 else ''} to go")
-                         + (L(f", environ {left} tours.", f", about {left} laps.") if left else "."))
+            parts.append(L(f"Il reste {m} minute{'s' if m > 1 else ''}", f"{m} minute{'s' if m > 1 else ''} to go", f"Noch {m} Minute{'n' if m > 1 else ''}")
+                         + (L(f", environ {left} tours.", f", about {left} laps.", f", etwa {left} Runden.") if left else "."))
     if not parts:
-        return L(f"Tu as bouclé {s.laps_done} tours.", f"You've done {s.laps_done} laps.")
+        return L(f"Tu as bouclé {s.laps_done} tours.", f"You've done {s.laps_done} laps.", f"Du hast {s.laps_done} Runden gefahren.")
     return " ".join(parts)
 
 
 def pit(s: Snapshot, p: Plan) -> str:
     if s.session != "course":
-        return L("On n'est pas en course, pas de stratégie d'arrêt pour l'instant.", "We're not racing, no pit strategy for now.")
+        return L("On n'est pas en course, pas de stratégie d'arrêt pour l'instant.", "We're not racing, no pit strategy for now.", "Wir sind nicht im Rennen, noch keine Boxenstrategie.")
     if not p.ready:
-        return L("Je calcule encore, donne-moi un ou deux tours propres.", "Still calculating, give me one or two clean laps.")
+        return L("Je calcule encore, donne-moi un ou deux tours propres.", "Still calculating, give me one or two clean laps.", "Ich rechne noch, gib mir ein oder zwei saubere Runden.")
     if p.stops_needed == 0:
-        return pick("a_nopit", [("Pas besoin de rentrer, tu as de quoi finir.", "No need to pit, you can make the finish."),
-                                ("Aucun arrêt prévu, on va au bout comme ça.", "No stop planned, we go to the end like this."),
-                                ("On ne s'arrête plus, tu as tout ce qu'il faut.", "No more stops, you've got everything you need.")])
+        return pick("a_nopit", [("Pas besoin de rentrer, tu as de quoi finir.", "No need to pit, you can make the finish.", "Kein Stopp nötig, du kommst ins Ziel."),
+                                ("Aucun arrêt prévu, on va au bout comme ça.", "No stop planned, we go to the end like this.", "Kein Stopp geplant, wir fahren so bis zum Ende."),
+                                ("On ne s'arrête plus, tu as tout ce qu'il faut.", "No more stops, you've got everything you need.", "Keine Stopps mehr, du hast alles, was du brauchst.")])
     if p.laps_until_box is not None and p.laps_until_box <= 1:
-        when = L("Box ce tour.", "Box this lap.")
+        when = L("Box ce tour.", "Box this lap.", "Box diese Runde.")
     else:
         b, n = p.box_lap, p.laps_until_box
-        when = pick("a_pitwhen", [(f"Tu rentres à la fin du tour {b}, dans {n} tours.", f"You pit at the end of lap {b}, in {n} laps."),
-                                  (f"Box dans {n} tours, à la fin du tour {b}.", f"Box in {n} laps, end of lap {b}."),
-                                  (f"On t'attend au stand dans {n} tours, tour {b}.", f"We'll see you in the pits in {n} laps, lap {b}.")])
+        when = pick("a_pitwhen", [(f"Tu rentres à la fin du tour {b}, dans {n} tours.", f"You pit at the end of lap {b}, in {n} laps.", f"Du kommst am Ende von Runde {b} rein, in {n} Runden."),
+                                  (f"Box dans {n} tours, à la fin du tour {b}.", f"Box in {n} laps, end of lap {b}.", f"Box in {n} Runden, am Ende von Runde {b}."),
+                                  (f"On t'attend au stand dans {n} tours, tour {b}.", f"We'll see you in the pits in {n} laps, lap {b}.", f"Wir sehen dich in {n} Runden an der Box, Runde {b}.")])
     serv = []
     if p.fuel_to_add is not None:
-        serv.append(L(f"{_f(p.fuel_to_add, 0)} litres", f"{_f(p.fuel_to_add, 0)} litres of fuel"))
+        serv.append(L(f"{_f(p.fuel_to_add, 0)} litres", f"{_f(p.fuel_to_add, 0)} litres of fuel", f"{_f(p.fuel_to_add, 0)} Liter Sprit"))
     if p.energy_target is not None:
-        serv.append(L(f"énergie à {_f(p.energy_target * 100, 0)} %", f"energy to {_f(p.energy_target * 100, 0)} %"))
+        serv.append(L(f"énergie à {_f(p.energy_target * 100, 0)} %", f"energy to {_f(p.energy_target * 100, 0)} %", f"Energie auf {_f(p.energy_target * 100, 0)} %"))
     if p.tyre_compound == "pluie":
-        serv.append(L("pneus pluie", "wet tyres"))
+        serv.append(L("pneus pluie", "wet tyres", "Regenreifen"))
     elif p.tyre_compound == "slicks":
-        serv.append(L("retour en slicks", "back to slicks"))
+        serv.append(L("retour en slicks", "back to slicks", "zurück auf Slicks"))
     elif p.change_tyres:
-        serv.append(L("4 pneus neufs", "four new tyres"))
+        serv.append(L("4 pneus neufs", "four new tyres", "vier neue Reifen"))
     elif p.change_tyres is False:
-        serv.append(L("on garde les pneus", "we keep the tyres"))
-    extra = L(f" Il faudra {p.stops_needed} arrêts au total.", f" {p.stops_needed} stops in total.") if p.stops_needed and p.stops_needed > 1 else ""
-    return (L(f"{when} On met {', '.join(serv)}.", f"{when} {', '.join(serv)}.") + extra) if serv else when + extra
+        serv.append(L("on garde les pneus", "we keep the tyres", "wir behalten die Reifen"))
+    extra = L(f" Il faudra {p.stops_needed} arrêts au total.", f" {p.stops_needed} stops in total.", f" Insgesamt {p.stops_needed} Stopps.") if p.stops_needed and p.stops_needed > 1 else ""
+    return (L(f"{when} On met {', '.join(serv)}.", f"{when} {', '.join(serv)}.", f"{when} {', '.join(serv)}.") + extra) if serv else when + extra
 
 
 COLD_TYRE = 55.0   # °C : en dessous, les pneus sont vraiment froids
@@ -137,21 +137,21 @@ def tyres(s: Snapshot, p: Plan) -> str:
     out = []
     flats = [i for i, f in enumerate(getattr(s, "flat", []) or []) if f]
     if flats:
-        out.append(L(f"Crevaison {_tyre_names(flats)} ! Rentre au stand doucement.", f"Puncture {_tyre_names(flats)}! Bring it in slowly."))
+        out.append(L(f"Crevaison {_tyre_names(flats)} ! Rentre au stand doucement.", f"Puncture {_tyre_names(flats)}! Bring it in slowly.", f"Reifenschaden {_tyre_names(flats)}! Komm langsam an die Box."))
     wear = [w * 100 for w in s.tyre_wear]          # LMU : 100 % = pneu neuf
     if any(wear):
         avg = sum(wear) / 4
         worst = min(range(4), key=lambda i: wear[i])
-        state = (L("Ils sont comme neufs", "They're like new") if avg >= 95 else
-                 L("Ils sont en bon état", "They're in good shape") if avg >= 80 else
-                 L("Ils commencent à s'user", "They're starting to wear") if avg >= 60 else
-                 L("Ils sont bien usés", "They're well worn") if avg >= 40 else
-                 L("Ils sont très usés, pense à les changer", "They're very worn, think about changing them"))
+        state = (L("Ils sont comme neufs", "They're like new", "Sie sind wie neu") if avg >= 95 else
+                 L("Ils sont en bon état", "They're in good shape", "Sie sind in gutem Zustand") if avg >= 80 else
+                 L("Ils commencent à s'user", "They're starting to wear", "Sie fangen an abzubauen") if avg >= 60 else
+                 L("Ils sont bien usés", "They're well worn", "Sie sind gut abgefahren") if avg >= 40 else
+                 L("Ils sont très usés, pense à les changer", "They're very worn, think about changing them", "Sie sind sehr abgefahren, denk an einen Wechsel"))
         out.append(L(f"{state} : il reste {_f(avg, 0)} % de gomme en moyenne, le plus usé c'est l'{_tyre_names([worst])} à {_f(wear[worst], 0)} %.",
-                     f"{state}: {_f(avg, 0)} % of rubber left on average, the most worn is the {_tyre_names([worst])} at {_f(wear[worst], 0)} %."))
+                     f"{state}: {_f(avg, 0)} % of rubber left on average, the most worn is the {_tyre_names([worst])} at {_f(wear[worst], 0)} %.", f"{state}: im Schnitt noch {_f(avg, 0)} % Gummi, am stärksten abgefahren ist {_tyre_names([worst])} mit {_f(wear[worst], 0)} %."))
     if p.tyre_laps_left is not None:
         out.append(L(f"Encore environ {_f(p.tyre_laps_left, 0)} tours avant qu'ils soient vraiment usés.",
-                     f"About {_f(p.tyre_laps_left, 0)} more laps before they're really worn."))
+                     f"About {_f(p.tyre_laps_left, 0)} more laps before they're really worn.", f"Noch etwa {_f(p.tyre_laps_left, 0)} Runden, bevor sie richtig runter sind."))
     temps = [x for x in (s.tyre_temp or []) if x and x > -50]
     opt = getattr(s, "tyre_opt", None)
     if len(temps) == 4:
@@ -160,26 +160,26 @@ def tyres(s: Snapshot, p: Plan) -> str:
             # la « température idéale » de LMU (~90 °C) n'est pas atteinte en roulage normal (69 °C en GT3,
             # comme dans le jeu) : on ne parle de pneus froids que s'ils le sont vraiment
             if avg_t < COLD_TYRE:
-                out.append(L(f"Ils sont encore froids : {_f(avg_t, 0)} degrés.", f"They're still cold: {_f(avg_t, 0)} degrees."))
+                out.append(L(f"Ils sont encore froids : {_f(avg_t, 0)} degrés.", f"They're still cold: {_f(avg_t, 0)} degrees.", f"Sie sind noch kalt: {_f(avg_t, 0)} Grad."))
             elif avg_t > opt + 15:
                 out.append(L(f"Ils sont trop chauds : {_f(avg_t, 0)} degrés, l'idéal est vers {_f(opt, 0)}. Ménage-les un peu.",
-                             f"They're too hot: {_f(avg_t, 0)} degrees, ideal is around {_f(opt, 0)}. Look after them a bit."))
+                             f"They're too hot: {_f(avg_t, 0)} degrees, ideal is around {_f(opt, 0)}. Look after them a bit.", f"Sie sind zu heiß: {_f(avg_t, 0)} Grad, ideal sind etwa {_f(opt, 0)}. Schon sie etwas."))
             else:
-                out.append(L(f"Bonne température, {_f(avg_t, 0)} degrés.", f"Good temperature, {_f(avg_t, 0)} degrees."))
+                out.append(L(f"Bonne température, {_f(avg_t, 0)} degrés.", f"Good temperature, {_f(avg_t, 0)} degrees.", f"Gute Temperatur, {_f(avg_t, 0)} Grad."))
         else:
-            out.append(L(f"Températures autour de {_f(avg_t, 0)} degrés.", f"Temperatures around {_f(avg_t, 0)} degrees."))
+            out.append(L(f"Températures autour de {_f(avg_t, 0)} degrés.", f"Temperatures around {_f(avg_t, 0)} degrees.", f"Temperaturen um {_f(avg_t, 0)} Grad."))
         front, rear = (temps[0] + temps[1]) / 2, (temps[2] + temps[3]) / 2
         if abs(front - rear) > 12:
-            hot = L("l'avant", "the fronts") if front > rear else L("l'arrière", "the rears")
+            hot = L("l'avant", "the fronts", "vorne") if front > rear else L("l'arrière", "the rears", "hinten")
             out.append(L(f"{hot.capitalize()} chauffe plus, de {_f(abs(front - rear), 0)} degrés.",
-                         f"{hot.capitalize()} {'are' if True else 'is'} running {_f(abs(front - rear), 0)} degrees hotter."))
+                         f"{hot.capitalize()} {'are' if True else 'is'} running {_f(abs(front - rear), 0)} degrees hotter.", f"{hot.capitalize()} ist {_f(abs(front - rear), 0)} Grad heißer."))
     if not out:
-        return L("Je n'arrive pas à lire tes pneus pour l'instant.", "I can't read your tyres right now.")
+        return L("Je n'arrive pas à lire tes pneus pour l'instant.", "I can't read your tyres right now.", "Ich kann deine Reifen gerade nicht auslesen.")
     return " ".join(out)
 
 
 def _sec(g: float) -> str:
-    return L(f"{_f(g)} seconde{'s' if g >= 2 else ''}", f"{_f(g)} second{'s' if g != 1 else ''}")
+    return L(f"{_f(g)} seconde{'s' if g >= 2 else ''}", f"{_f(g)} second{'s' if g != 1 else ''}", f"{_f(g)} Sekunde{'n' if g != 1 else ''}")
 
 
 def gaps(s: Snapshot, p: Plan) -> str:
@@ -187,103 +187,103 @@ def gaps(s: Snapshot, p: Plan) -> str:
     ga = s.gap_class_ahead if s.gap_class_ahead is not None else s.gap_ahead
     gb = s.gap_class_behind if s.gap_class_behind is not None else s.gap_behind
     t = LAST_TEXT
-    front = bool(re.search(r"devant|ahead|in front|attaque|premier|leader|tete", t))
-    back = bool(re.search(r"derriere|behind|revient|catching|suit", t))
+    front = bool(re.search(r"devant|ahead|in front|attaque|premier|leader|tete|vordermann|\bvorne|vor mir|hole ich auf|komm\w* ich (naher|ran)", t))
+    back = bool(re.search(r"derriere|behind|revient|catching|suit|hintermann|\bhinten|hinter mir|holt (er )?auf|kommt (er )?naher", t))
     leader = s.ahead is None and (s.class_position or s.position) == 1
     # « il revient / il remonte / je reprends du temps ? » : on répond avec l'évolution de l'écart
-    if re.search(r"remont|revien|rapproch|mont(e|ent|ant)? fort|fond(s)? sur|reprend|recoll|s eloign|echapp|lache|creuse|catching|closing|pulling", t):
+    if re.search(r"remont|revien|rapproch|mont(e|ent|ant)? fort|fond(s)? sur|reprend|recoll|s eloign|echapp|lache|creuse|catching|closing|pulling|holt (er )?auf|hole ich auf|naher|\bran\b|zieht weg|fahrt weg|setzt sich ab", t):
         try:
             from alerts import GapTrend, _dix
             tr = GapTrend.LAST
         except Exception:
             tr = None
-        side = "behind" if (back and not front) or (not front and re.search(r"remont|revien|rapproch|mont", t)) else "ahead"
+        side = "behind" if (back and not front) or (not front and re.search(r"remont|revien|rapproch|mont|holt|kommt", t)) else "ahead"
         r = tr.trend(side) if tr else None
         if r:
             rate, gap, place = r
-            who = f"P{place}" if place else L("la voiture", "the car")
+            who = f"P{place}" if place else L("la voiture", "the car", "das Auto")
             if side == "behind":
                 if rate < -0.05:
                     n = int(gap / -rate) + 1
                     return L(f"Oui, {who} revient de {_dix(rate)} par tour. Il est à {_sec(gap)}, sur toi dans {n} tour{'s' if n > 1 else ''} à ce rythme.",
-                             f"Yes, {who} is closing by {_dix(rate)} a lap. He's {_sec(gap)} back, on you in {n} lap{'s' if n > 1 else ''} at this pace.")
+                             f"Yes, {who} is closing by {_dix(rate)} a lap. He's {_sec(gap)} back, on you in {n} lap{'s' if n > 1 else ''} at this pace.", f"Ja, {who} kommt {_dix(rate)} pro Runde näher. Er ist {_sec(gap)} hinter dir, bei diesem Tempo in {n} Runde{'n' if n > 1 else ''} dran.")
                 if rate > 0.05:
                     return L(f"Non, tu creuses : tu prends {_dix(rate)} par tour à {who}, il est à {_sec(gap)}.",
-                             f"No, you're pulling away: {_dix(rate)} a lap on {who}, he's {_sec(gap)} back.")
-                return L(f"L'écart est stable avec {who}, à {_sec(gap)}.", f"The gap to {who} is stable, {_sec(gap)}.")
+                             f"No, you're pulling away: {_dix(rate)} a lap on {who}, he's {_sec(gap)} back.", f"Nein, du fährst davon: {_dix(rate)} pro Runde auf {who}, er ist {_sec(gap)} zurück.")
+                return L(f"L'écart est stable avec {who}, à {_sec(gap)}.", f"The gap to {who} is stable, {_sec(gap)}.", f"Der Abstand zu {who} ist stabil, {_sec(gap)}.")
             if rate < -0.05:
                 n = int(gap / -rate) + 1
                 return L(f"Oui, tu reprends {_dix(rate)} par tour à {who}. Il est à {_sec(gap)}, dans ses roues dans {n} tour{'s' if n > 1 else ''}.",
-                         f"Yes, you're gaining {_dix(rate)} a lap on {who}. He's {_sec(gap)} ahead, on his gearbox in {n} lap{'s' if n > 1 else ''}.")
+                         f"Yes, you're gaining {_dix(rate)} a lap on {who}. He's {_sec(gap)} ahead, on his gearbox in {n} lap{'s' if n > 1 else ''}.", f"Ja, du holst {_dix(rate)} pro Runde auf {who} auf. Er ist {_sec(gap)} vor dir, in {n} Runde{'n' if n > 1 else ''} am Heck.")
             if rate > 0.05:
                 return L(f"Non, {who} s'éloigne de {_dix(rate)} par tour, il est à {_sec(gap)}.",
-                         f"No, {who} is pulling away by {_dix(rate)} a lap, {_sec(gap)} ahead.")
-            return L(f"L'écart est stable avec {who}, à {_sec(gap)}.", f"The gap to {who} is stable, {_sec(gap)}.")
+                         f"No, {who} is pulling away by {_dix(rate)} a lap, {_sec(gap)} ahead.", f"Nein, {who} fährt dir {_dix(rate)} pro Runde davon, {_sec(gap)} vor dir.")
+            return L(f"L'écart est stable avec {who}, à {_sec(gap)}.", f"The gap to {who} is stable, {_sec(gap)}.", f"Der Abstand zu {who} ist stabil, {_sec(gap)}.")
     if front and not back:
         if ga is not None:
-            return L(f"La voiture devant est à {_sec(ga)}.", f"The car ahead is {_sec(ga)} up the road.")
+            return L(f"La voiture devant est à {_sec(ga)}.", f"The car ahead is {_sec(ga)} up the road.", f"Das Auto vor dir ist {_sec(ga)} weg.")
         if leader:
-            return L("Tu es en tête, il n'y a personne devant toi.", "You're leading, there's nobody ahead.")
-        return L("Je n'arrive pas à lire l'écart avec la voiture devant pour l'instant.", "I can't read the gap to the car ahead right now.")
+            return L("Tu es en tête, il n'y a personne devant toi.", "You're leading, there's nobody ahead.", "Du führst, vor dir ist niemand.")
+        return L("Je n'arrive pas à lire l'écart avec la voiture devant pour l'instant.", "I can't read the gap to the car ahead right now.", "Ich kann den Abstand zum Vordermann gerade nicht auslesen.")
     if back and not front:
         if gb is not None:
-            return L(f"La voiture derrière est à {_sec(gb)}.", f"The car behind is {_sec(gb)} back.")
-        return L("Personne derrière toi pour l'instant.", "Nobody behind you right now.")
+            return L(f"La voiture derrière est à {_sec(gb)}.", f"The car behind is {_sec(gb)} back.", f"Das Auto hinter dir ist {_sec(gb)} zurück.")
+        return L("Personne derrière toi pour l'instant.", "Nobody behind you right now.", "Gerade niemand hinter dir.")
     parts = []
     if ga is not None:
-        parts.append(L(f"{_sec(ga)} devant", f"{_sec(ga)} ahead"))
+        parts.append(L(f"{_sec(ga)} devant", f"{_sec(ga)} ahead", f"{_sec(ga)} vorne"))
     elif leader:
-        parts.append(L("tu es en tête", "you're leading"))
+        parts.append(L("tu es en tête", "you're leading", "du führst"))
     if gb is not None:
-        parts.append(L(f"{_sec(gb)} derrière", f"{_sec(gb)} behind"))
+        parts.append(L(f"{_sec(gb)} derrière", f"{_sec(gb)} behind", f"{_sec(gb)} hinten"))
     if not parts:
-        return L("Personne de proche autour de toi.", "Nobody close around you.")
-    return L("Écart : ", "Gaps: ") + ", ".join(parts) + "."
+        return L("Personne de proche autour de toi.", "Nobody close around you.", "Niemand in deiner Nähe.")
+    return L("Écart : ", "Gaps: ", "Abstände: ") + ", ".join(parts) + "."
 
 
 def repairs(s: Snapshot, p: Plan) -> str:
     if s.no_repair:
         return L("Tu m'as demandé de ne pas réparer : au prochain arrêt, on ne touche pas à la voiture.",
-                 "You asked for no repairs: we won't touch the car at the next stop.")
+                 "You asked for no repairs: we won't touch the car at the next stop.", "Du wolltest keine Reparatur: Wir fassen das Auto beim nächsten Stopp nicht an.")
     if s.repair:
         return L("Oui, la voiture est abîmée : je prévois les réparations au prochain arrêt. Dis « pas de réparation » si tu n'en veux pas.",
-                 "Yes, the car is damaged: I'm planning repairs at the next stop. Say \"no repairs\" if you don't want them.")
-    return pick("a_norep", [("Pas de dégâts importants, pas besoin de réparer.", "No significant damage, no need for repairs."),
-                            ("La voiture va bien, rien à réparer.", "The car looks fine, nothing to fix."),
-                            ("Je ne vois pas de dégâts sérieux, on ne répare pas.", "No serious damage on my side, no repairs needed.")])
+                 "Yes, the car is damaged: I'm planning repairs at the next stop. Say \"no repairs\" if you don't want them.", "Ja, das Auto ist beschädigt: Ich plane Reparaturen beim nächsten Stopp. Sag „keine Reparatur“, wenn du das nicht willst.")
+    return pick("a_norep", [("Pas de dégâts importants, pas besoin de réparer.", "No significant damage, no need for repairs.", "Keine großen Schäden, keine Reparatur nötig."),
+                            ("La voiture va bien, rien à réparer.", "The car looks fine, nothing to fix.", "Das Auto ist in Ordnung, nichts zu reparieren."),
+                            ("Je ne vois pas de dégâts sérieux, on ne répare pas.", "No serious damage on my side, no repairs needed.", "Ich sehe keine ernsten Schäden, wir reparieren nicht.")])
 
 
 def position(s: Snapshot, p: Plan) -> str:
-    out = pick("a_pos", [(f"Tu es P{s.position}", f"You're P{s.position}"), (f"Tu roules P{s.position}", f"You're running P{s.position}"),
-                         (f"Position : P{s.position}", f"Position: P{s.position}")])
+    out = pick("a_pos", [(f"Tu es P{s.position}", f"You're P{s.position}", f"Du bist P{s.position}"), (f"Tu roules P{s.position}", f"You're running P{s.position}", f"Du fährst auf P{s.position}"),
+                         (f"Position : P{s.position}", f"Position: P{s.position}", f"Position: P{s.position}")])
     if s.class_position and s.class_position != s.position:
-        out += L(f", P{s.class_position} dans ta catégorie", f", P{s.class_position} in class")
+        out += L(f", P{s.class_position} dans ta catégorie", f", P{s.class_position} in class", f", P{s.class_position} in der Klasse")
     return out + "."
 
 
 def _forecast_text(fc: list, now: float, total: float | None, label: str) -> str:
     """Résumé des prévisions : pluie prévue (quand, combien) ou temps sec."""
     try:
-        from alerts import SKY_FR, SKY_EN
+        from alerts import SKY_FR, SKY_EN, SKY_DE
     except Exception:
-        SKY_FR = SKY_EN = []
+        SKY_FR = SKY_EN = SKY_DE = []
     ahead = [n for n in fc if n["at"] >= now - 0.01]
     if not ahead:
         return ""
     wet = [n for n in ahead if n["rain"] >= 0.3]
     if not wet:
-        return L(f"{label} : pas de pluie prévue.", f"{label}: no rain expected.")
+        return L(f"{label} : pas de pluie prévue.", f"{label}: no rain expected.", f"{label}: kein Regen erwartet.")
     n = max(wet, key=lambda x: x["rain"])
-    sky = (SKY_FR if not i18n.en() else SKY_EN)[n["sky"]] if 0 <= n["sky"] < len(SKY_FR) else ""
+    sky = (SKY_DE if i18n.de() else SKY_EN if i18n.en() else SKY_FR)[n["sky"]] if 0 <= n["sky"] < len(SKY_FR) else ""
     when = ""
     if total:
         mins = (n["at"] - now) * total / 60
-        when = (L(" maintenant", " now") if mins < 2 else L(f" dans environ {int(mins)} minutes", f" in about {int(mins)} minutes"))
+        when = (L(" maintenant", " now", " jetzt") if mins < 2 else L(f" dans environ {int(mins)} minutes", f" in about {int(mins)} minutes", f" in etwa {int(mins)} Minuten"))
     else:
         when = L([" au départ", " au premier quart", " à mi-séance", " au troisième quart", " vers la fin"][min(4, round(n['at'] * 4))],
-                 [" at the start", " at the first quarter", " at half distance", " at the third quarter", " near the end"][min(4, round(n['at'] * 4))])
+                 [" at the start", " at the first quarter", " at half distance", " at the third quarter", " near the end"][min(4, round(n['at'] * 4))], [" zum Start", " im ersten Viertel", " zur Halbzeit", " im dritten Viertel", " gegen Ende"][min(4, round(n['at'] * 4))])
     return L(f"{label} : risque de pluie {_f(n['rain'] * 100, 0)} %{when}{', ' + sky if sky else ''}.",
-             f"{label}: {_f(n['rain'] * 100, 0)} % chance of rain{when}{', ' + sky if sky else ''}.")
+             f"{label}: {_f(n['rain'] * 100, 0)} % chance of rain{when}{', ' + sky if sky else ''}.", f"{label}: Regenrisiko {_f(n['rain'] * 100, 0)} %{when}{', ' + sky if sky else ''}.")
 
 
 def forecast_answer(t: str, s: Snapshot) -> str:
@@ -294,36 +294,36 @@ def forecast_answer(t: str, s: Snapshot) -> str:
         return ""
     parts = []
     want_q = re.search(r"qualif|calif|kalif|qualy|qualifying", t)
-    want_r = re.search(r"\bcourse\b|\brace\b", t)
+    want_r = re.search(r"\bcourse\b|\brace\b|\brennen\b", t)
     cur = Weather.LAST.forecast if Weather.LAST else []
     if cur and not (want_q or want_r):
         total = (s.elapsed + s.time_left) if s.time_left else None
         now = s.elapsed / total if total else 0.0
-        parts.append(_forecast_text(cur, now, total, L("Pour cette séance", "This session")))
+        parts.append(_forecast_text(cur, now, total, L("Pour cette séance", "This session", "Diese Session")))
     if want_q:
-        parts.append(_forecast_text(Weather.session_forecast("QUALIFY"), 0.0, None, L("Pour les qualifs", "Qualifying")))
+        parts.append(_forecast_text(Weather.session_forecast("QUALIFY"), 0.0, None, L("Pour les qualifs", "Qualifying", "Das Qualifying")))
     if want_r or (not parts and not want_q):
-        parts.append(_forecast_text(Weather.session_forecast("RACE"), 0.0, None, L("Pour la course", "The race")))
+        parts.append(_forecast_text(Weather.session_forecast("RACE"), 0.0, None, L("Pour la course", "The race", "Das Rennen")))
     return " ".join(x for x in parts if x)
 
 
 def weather(s: Snapshot, p: Plan) -> str:
     out = L(f"{p.weather or 'Sec'}. Air {_f(s.air_temp, 0)} degrés, piste {_f(s.track_temp, 0)}.",
-            f"{p.weather or 'Dry'}. Air {_f(s.air_temp, 0)} degrees, track {_f(s.track_temp, 0)}.")
-    if re.search(r"pleuv|pluie|prevu|prevision|va (faire|y avoir)|course|qualif|calif|tout a l heure|plus tard|forecast|later|rain|qualy", LAST_TEXT):
+            f"{p.weather or 'Dry'}. Air {_f(s.air_temp, 0)} degrees, track {_f(s.track_temp, 0)}.", f"{p.weather or 'Trocken'}. Luft {_f(s.air_temp, 0)} Grad, Strecke {_f(s.track_temp, 0)}.")
+    if re.search(r"pleuv|pluie|prevu|prevision|va (faire|y avoir)|course|qualif|calif|tout a l heure|plus tard|forecast|later|rain|qualy|regnen|regen|vorhersage|spater|rennen", LAST_TEXT):
         fc = forecast_answer(LAST_TEXT, s)
         if fc:
             out += " " + fc
     if p.tyre_compound == "pluie":
-        out += L(" Je te conseille les pneus pluie au prochain arrêt.", " I'd go to wets at the next stop.")
+        out += L(" Je te conseille les pneus pluie au prochain arrêt.", " I'd go to wets at the next stop.", " Ich würde beim nächsten Stopp auf Regenreifen gehen.")
     elif p.tyre_compound == "slicks":
-        out += L(" On peut repasser en slicks.", " We can go back to slicks.")
+        out += L(" On peut repasser en slicks.", " We can go back to slicks.", " Wir können zurück auf Slicks.")
     return out
 
 
 def laptimes(s: Snapshot, p: Plan) -> str:
     return L(f"Dernier tour en {_laptime(s.last_lap)}, meilleur en {_laptime(s.best_lap)}.",
-             f"Last lap {_laptime(s.last_lap)}, best {_laptime(s.best_lap)}.")
+             f"Last lap {_laptime(s.last_lap)}, best {_laptime(s.best_lap)}.", f"Letzte Runde {_laptime(s.last_lap)}, beste {_laptime(s.best_lap)}.")
 
 
 def status(s: Snapshot, p: Plan) -> str:
@@ -332,17 +332,17 @@ def status(s: Snapshot, p: Plan) -> str:
 
 TOPICS = [
     # (mots-clés, fonction)
-    (r"essence|des sens|d sens|carbu|fuel|conso|litre|reservoir|jus|gasoil|\bgas\b|petrol|consumption|\btank", fuel),
-    (r"energie|batterie|virtuel|energy|battery|virtual", energy),
-    (r"stand|\bbox|arret|rentr|\bpit|ravitaill|strateg|\bstop\b|come in", pit),
-    (r"pneu|pner|peneu|pneumatique|gomme|usure|pression|crev|\betat d(u|e|es)\b(?!.*(voiture|caisse|carrosserie|course|jeu de la))|\btyre|\btire|rubber|\bwear|\bpressure", tyres),
-    (r"ecart|devant|derriere|\bgap|attaque|revient|remont|rapproch|monte fort|montant fort|ahead|behind|in front|catching|closing", gaps),
-    (r"repar|degat|degare|dommage|abime|casse|etat de (la|ma) (voiture|caisse|bagnole)|damage|repair", repairs),
-    (r"position|place|classement|placement|cassement|quelle p\b|combien ?t?i?eme|combien siam|combien.*(je suis|suis je)|je suis ou\b|where am i|what p\b", position),
-    (r"meteo|pluie|pleut|pleuvoir|mouill|humid|sec\b|temperature (de la piste|piste|de l air|exterieur)|nuage|quel temps|temps qu il fait|temps il fait|sous la pluie|a la pluie|qualif|calif|weather|\brain|\bwet\b|\bdry\b|cloud", weather),
-    (r"chrono|dernier tour|meilleur tour|temps au tour|mon tour|rythme|tourne en|je tourne|lap time|last lap|best lap|\bpace\b", laptimes),
-    (r"combien de tour|tours restant|reste.*tour|temps restant|reste.*minute|reste combien de temps|combien de temps.*reste|\bfin\b|arrivee|damier|how many laps|laps (left|to go|remaining)|time (left|remaining)|finish", laps),
-    (r"point complet|fais (moi )?le point|\ble point\b|situation|resume|tout va|comment ca va|ca donne quoi|ca se passe|recap|update|summary|how are we|status|how s it going", status),
+    (r"essence|des sens|d sens|carbu|fuel|conso|litre|reservoir|jus|gasoil|\bgas\b|petrol|consumption|\btank|sprit|benzin|kraftstoff|verbrauch|\bliter", fuel),
+    (r"energie|batterie|virtuel|energy|battery|virtual|akku", energy),
+    (r"stand|\bbox|arret|rentr|\bpit|ravitaill|strateg|\bstop\b|come in|boxen|\bstopp|reinkomm|reinfahr|nachtank|wann (komm|fahr)\w* ich rein", pit),
+    (r"pneu|pner|peneu|pneumatique|gomme|usure|pression|crev|\betat d(u|e|es)\b(?!.*(voiture|caisse|carrosserie|course|jeu de la))|\btyre|\btire|rubber|\bwear|\bpressure|reifen|gummi|abrieb|verschleiss|luftdruck|\bplatt", tyres),
+    (r"ecart|devant|derriere|\bgap|attaque|revient|remont|rapproch|monte fort|montant fort|ahead|behind|in front|catching|closing|abstand|abstande|vordermann|hintermann|holt auf|hole ich auf|komm\w* (ich )?(naher|ran)", gaps),
+    (r"repar|degat|degare|dommage|abime|casse|etat de (la|ma) (voiture|caisse|bagnole)|damage|repair|schaden|reparatur|reparier|kaputt|beschadig", repairs),
+    (r"position|place|classement|placement|cassement|quelle p\b|combien ?t?i?eme|combien siam|combien.*(je suis|suis je)|je suis ou\b|where am i|what p\b|platzierung|welche\w* platz|wo (bin|lieg\w*) ich|welche position|auf welchem platz", position),
+    (r"meteo|pluie|pleut|pleuvoir|mouill|humid|sec\b|temperature (de la piste|piste|de l air|exterieur)|nuage|quel temps|temps qu il fait|temps il fait|sous la pluie|a la pluie|qualif|calif|weather|\brain|\bwet\b|\bdry\b|cloud|wetter|regen|regnet|\bnass|trocken|wolke|(luft|strecken|asphalt)temperatur|temperatur (der strecke|draussen)", weather),
+    (r"chrono|dernier tour|meilleur tour|temps au tour|mon tour|rythme|tourne en|je tourne|lap time|last lap|best lap|\bpace\b|rundenzeit|letzte runde|beste runde|bestzeit|\btempo\b", laptimes),
+    (r"combien de tour|tours restant|reste.*tour|temps restant|reste.*minute|reste combien de temps|combien de temps.*reste|\bfin\b|arrivee|damier|how many laps|laps (left|to go|remaining)|time (left|remaining)|finish|wie viele runden|wieviele runden|runden (noch|ubrig)|restzeit|wie lange noch|zeit (noch|ubrig)|zielflagge", laps),
+    (r"point complet|fais (moi )?le point|\ble point\b|situation|resume|tout va|comment ca va|ca donne quoi|ca se passe|recap|update|summary|how are we|status|how s it going|lagebericht|wie geht s|wie gehts|wie sieht s aus|wie siehts aus|wie lauft s|wie laufts|zusammenfassung|uberblick|wie stehen wir", status),
 ]
 
 
@@ -355,51 +355,81 @@ LAST_TEXT = ""      # dernière question (normalisée), pour savoir si on parle 
 
 def pit_command(s: Snapshot, p: Plan) -> str:
     if PIT_ACTION is None:
-        return L("Je ne peux pas régler le stand pour l'instant.", "I can't set the pit menu right now.")
+        return L("Je ne peux pas régler le stand pour l'instant.", "I can't set the pit menu right now.", "Ich kann das Boxenmenü gerade nicht einstellen.")
     PIT_ACTION()
-    return L("Je règle le menu des stands.", "Setting up the pit menu.")
+    return L("Je règle le menu des stands.", "Setting up the pit menu.", "Ich stelle das Boxenmenü ein.")
 
 
 def behavior(s: Snapshot, p: Plan) -> str:
-    return BEHAVIOR.summary() if BEHAVIOR else L("Analyse du comportement indisponible.", "Handling analysis unavailable.")
+    return BEHAVIOR.summary() if BEHAVIOR else L("Analyse du comportement indisponible.", "Handling analysis unavailable.", "Fahrverhaltens-Analyse nicht verfügbar.")
 
 
 def record(s: Snapshot, p: Plan) -> str:
-    return LAPTIMES.record_text(s) if LAPTIMES else L("Pas de chronos enregistrés.", "No lap times recorded.")
+    return LAPTIMES.record_text(s) if LAPTIMES else L("Pas de chronos enregistrés.", "No lap times recorded.", "Keine Rundenzeiten gespeichert.")
 
 
 def sectors(s: Snapshot, p: Plan) -> str:
     if not LAPTIMES or not LAPTIMES.last:
-        return L("Il me faut un tour complet et valide pour comparer les secteurs.", "I need a full valid lap to compare sectors.")
+        return L("Il me faut un tour complet et valide pour comparer les secteurs.", "I need a full valid lap to compare sectors.", "Ich brauche eine volle, gültige Runde, um Sektoren zu vergleichen.")
     t = LAPTIMES.summary()
-    return t or L("Pas de voiture à comparer autour de toi pour l'instant.", "No car to compare with around you yet.")
+    return t or L("Pas de voiture à comparer autour de toi pour l'instant.", "No car to compare with around you yet.", "Noch kein Auto um dich herum zum Vergleichen.")
 
 
 def sectors_ahead(s: Snapshot, p: Plan) -> str:
     t = LAPTIMES.summary("ahead") if LAPTIMES else ""
-    return t or L("Pas de comparaison possible avec la voiture devant pour l'instant.", "Can't compare with the car ahead yet.")
+    return t or L("Pas de comparaison possible avec la voiture devant pour l'instant.", "Can't compare with the car ahead yet.", "Noch kein Vergleich mit dem Vordermann möglich.")
 
 
 def sectors_behind(s: Snapshot, p: Plan) -> str:
     t = LAPTIMES.summary("behind") if LAPTIMES else ""
-    return t or L("Pas de comparaison possible avec la voiture derrière pour l'instant.", "Can't compare with the car behind yet.")
+    return t or L("Pas de comparaison possible avec la voiture derrière pour l'instant.", "Can't compare with the car behind yet.", "Noch kein Vergleich mit dem Hintermann möglich.")
 
 
 def penalty(s: Snapshot, p: Plan) -> str:
     if not s.penalties:
-        return L("Aucune pénalité en cours.", "No penalty pending.")
+        return L("Aucune pénalité en cours.", "No penalty pending.", "Keine offene Strafe.")
     return L(f"Tu as {s.penalties} pénalité{'s' if s.penalties > 1 else ''} à purger aux stands. Regarde l'écran pour le type.",
-             f"You have {s.penalties} penalt{'ies' if s.penalties > 1 else 'y'} to serve in the pits. Check the screen for the type.")
+             f"You have {s.penalties} penalt{'ies' if s.penalties > 1 else 'y'} to serve in the pits. Check the screen for the type.", f"Du hast {s.penalties} Strafe{'n' if s.penalties > 1 else ''} in der Box abzusitzen. Schau auf den Bildschirm für die Art.")
 
 
 TOPICS[:0] = [
-    (r"penalit|drive through|stop (and|n|et) go|penalty", penalty),
-    (r"(prepare|regle|regule|mets|programme|set up|setup the|program).*(stand|arret|box|menu|pit|stop)|(stand|arret).*(prepare|regle)|prepare (moi )?(l arret|tout|la re)|je rentre (ce tour|au stand|maintenant|ce tout)|box this lap|i m pitting|pitting this lap", pit_command),
-    (r"comporte|sous vir|sousvir|survir|equilibr|reglage|setup|conseil|satope|sur virage|plus vite|ameliorer|progresser|glisse|bloqu|patin|tient pas|braqu|tourne pas|ralenti|pousse|lourde|decroche|chasse|instable|nerveuse|freinage|balance|understeer|oversteer|handling|advice|sliding|locking|wheelspin|loose|snap|braking|won t turn", behavior),
-    (r"record|meilleur temps (ici|du circuit)|tour ideal|personal best|ideal lap", record),
-    (r"(secteur|perd|gagne|reprend|compar|plus rapide|plus lent|sector|losing|gaining|faster|slower).*(devant|ahead|in front)|(devant|ahead|in front).*(secteur|perd|gagne|rapide|lent|sector|losing|gaining|faster|slower)", sectors_ahead),
-    (r"(secteur|perd|gagne|reprend|compar|plus rapide|plus lent|sector|losing|gaining|faster|slower).*(derriere|behind)|(derriere|behind).*(secteur|perd|gagne|rapide|lent|sector|losing|gaining|faster|slower)", sectors_behind),
-    (r"secteur|ou je perds?|ou je gagne|perds? du temps|compar|sector|where am i losing|where do i lose", sectors),
+    (r"penalit|drive through|stop (and|n|et) go|penalty|strafe|durchfahrt", penalty),
+    (r"(prepare|regle|regule|mets|programme|set up|setup the|program).*(stand|arret|box|menu|pit|stop)|(stand|arret).*(prepare|regle)|prepare (moi )?(l arret|tout|la re)|je rentre (ce tour|au stand|maintenant|ce tout)|box this lap|i m pitting|pitting this lap|(bereite|stell|richte|programmier)\w*.*(box|stopp|menu)|ich komm\w* (jetzt |diese runde )?rein|box diese runde", pit_command),
+    (r"comporte|sous vir|sousvir|survir|equilibr|reglage|setup|conseil|satope|sur virage|plus vite|ameliorer|progresser|glisse|bloqu|patin|tient pas|braqu|tourne pas|ralenti|pousse|lourde|decroche|chasse|instable|nerveuse|freinage|balance|understeer|oversteer|handling|advice|sliding|locking|wheelspin|loose|snap|braking|won t turn|untersteu|ubersteu|fahrverhalten|abstimmung|rutsch|blockier|durchdreh|ratschlag|\btipp", behavior),
+    (r"record|meilleur temps (ici|du circuit)|tour ideal|personal best|ideal lap|rekord|personliche bestzeit|idealrunde", record),
+    (r"(secteur|perd|gagne|reprend|compar|plus rapide|plus lent|sector|losing|gaining|faster|slower|sektor|verlier|gewinn|schneller|langsamer).*(devant|ahead|in front|vordermann|\bvorne)|(devant|ahead|in front|vordermann|\bvorne).*(secteur|perd|gagne|rapide|lent|sector|losing|gaining|faster|slower|sektor|verlier|gewinn|schneller|langsamer)", sectors_ahead),
+    (r"(secteur|perd|gagne|reprend|compar|plus rapide|plus lent|sector|losing|gaining|faster|slower|sektor|verlier|gewinn|schneller|langsamer).*(derriere|behind|hintermann|\bhinten)|(derriere|behind|hintermann|\bhinten).*(secteur|perd|gagne|rapide|lent|sector|losing|gaining|faster|slower|sektor|verlier|gewinn|schneller|langsamer)", sectors_behind),
+    (r"secteur|ou je perds?|ou je gagne|perds? du temps|compar|sector|where am i losing|where do i lose|sektor|wo verliere ich|wo gewinne ich|verliere (ich )?zeit", sectors),
+]
+
+
+ENDURANCE = None   # module endurance (stints, objectif carburant, pneus, trafic), branché par app.py
+
+
+def _endu(fn_name: str):
+    def fn(s: Snapshot, p: Plan) -> str:
+        if ENDURANCE is None:
+            return L("Le module endurance n'est pas prêt.", "The endurance module isn't ready.", "Das Langstrecken-Modul ist nicht bereit.")
+        f = getattr(ENDURANCE, fn_name)
+        return f(s, p, LAST_TEXT) if fn_name == "answer_traffic" else f(s, p)
+    fn.__name__ = fn_name
+    return fn
+
+
+stint_info, fuel_target, tyre_sets, traffic_info, class_info = (
+    _endu("answer_stint"), _endu("answer_fuel_target"), _endu("answer_tyres"), _endu("answer_traffic"), _endu("answer_class"))
+
+TOPICS[:0] = [
+    (r"\bstint|relais|fahrerwechsel|driver (change|swap)|changement de pilote|mindestrunden|mindestfahrzeit|"
+     r"minimum (de )?(tours|pilotage)|driver minimum", stint_info),
+    (r"spritziel|sparziel|verbrauchsziel|zielverbrauch|wie ?viel (muss ich )?sparen|energieziel|"
+     r"objectif (carbu|essence|conso|energie)|combien (dois je )?economiser|fuel target|target (fuel|consumption)|how much (do i )?save", fuel_target),
+    (r"reifensatz|reifensatze|\bsatze\b|wie ?viele reifen|reifen (ubrig|noch)|einzelreifen|tyre sets|sets left|how many tyres|"
+     r"trains? de pneus|combien de pneus|pneus restants", tyre_sets),
+    (r"verkehr|traffic|trafic|\bgt3|hypercar|\blmp ?[23]|\bgte\b|uberrund|einhol|wann hole ich|lapping|lapped|catch (him|them|up)|"
+     r"rattrap|quand je (le|la|les) (rattrape|double)", traffic_info),
+    (r"(?<!welche )klasse\b|klassenwertung|konkurrenz|wie viele stopps|stopps (der|die) (anderen|gegner)|class standings|in class|"
+     r"rivals? stops|ma categorie|mes rivaux|arrets des (autres|rivaux)", class_info),
 ]
 
 
@@ -407,9 +437,9 @@ VOICE = None      # pour le mode silence
 ENG = None        # pour répéter le dernier message
 
 COMMANDS = [
-    (r"\bsilence\b|tais toi|taise|chut\b|moins de message|arrete de parler|mode calme|plus que l urgent|be quiet|shut up|quiet mode|less talk|only urgent", "quiet"),
-    (r"reparle|repale|reparler|parle a nouveau|tu peux parler|fin du silence|toutes les infos|remets? (la radio|les annonces)|talk again|you can talk|all info|unmute|resume radio", "talk"),
-    (r"repete|repeter|redis|redire|j ai pas (compris|entendu)|pardon\b|t as dit quoi|qu est ce que tu as dit|repeat|say again|come again|what did you say", "repeat"),
+    (r"\bsilence\b|tais toi|taise|chut\b|moins de message|arrete de parler|mode calme|plus que l urgent|be quiet|shut up|quiet mode|less talk|only urgent|\bruhe\b|sei still|halt die klappe|weniger funk|nur (noch )?dringend|ruhemodus an", "quiet"),
+    (r"reparle|repale|reparler|parle a nouveau|tu peux parler|fin du silence|toutes les infos|remets? (la radio|les annonces)|talk again|you can talk|all info|unmute|resume radio|sprich wieder|rede wieder|alle infos|funk wieder|ruhemodus aus", "talk"),
+    (r"repete|repeter|redis|redire|j ai pas (compris|entendu)|pardon\b|t as dit quoi|qu est ce que tu as dit|repeat|say again|come again|what did you say|wiederhol|^(nochmal|noch mal)$|sag (das )?(nochmal|noch mal)|was hast du gesagt|wie bitte", "repeat"),
 ]
 
 
@@ -422,65 +452,65 @@ def command(text: str) -> str | None:
         if cmd == "quiet" and VOICE is not None:
             VOICE.quiet = True
             return L("Bien reçu, je ne te dis plus que l'urgent. Dis « reparle » pour tout réentendre.",
-                     "Copy, urgent calls only from now on. Say \"talk again\" to hear everything.")
+                     "Copy, urgent calls only from now on. Say \"talk again\" to hear everything.", "Verstanden, ab jetzt nur noch dringende Ansagen. Sag „sprich wieder“, um alles zu hören.")
         if cmd == "talk" and VOICE is not None:
             VOICE.quiet = False
-            return L("C'est noté, je te redonne toutes les infos.", "Copy, back to full info.")
+            return L("C'est noté, je te redonne toutes les infos.", "Copy, back to full info.", "Verstanden, wieder alle Infos.")
         if cmd == "repeat" and ENG is not None:
             last = next((m["text"] for m in ENG.radio if not m.get("me")), None)
-            return L(f"Je répète : {last}", f"I repeat: {last}") if last else L("Je n'ai encore rien dit.", "I haven't said anything yet.")
+            return L(f"Je répète : {last}", f"I repeat: {last}", f"Ich wiederhole: {last}") if last else L("Je n'ai encore rien dit.", "I haven't said anything yet.", "Ich habe noch nichts gesagt.")
     return None
 
 
 # ------------------------------------------------------------ discussion
 # Petites phrases de radio qui marchent partout, même hors de la voiture.
 def _radio_check(s: Snapshot) -> str:
-    return pick("a_check", [("Oui, je t'entends, cinq sur cinq.", "Yes, I hear you loud and clear."),
-                            ("Cinq sur cinq, je te reçois parfaitement.", "Five by five, reading you perfectly."),
-                            ("Reçu fort et clair.", "Loud and clear.")])
+    return pick("a_check", [("Oui, je t'entends, cinq sur cinq.", "Yes, I hear you loud and clear.", "Ja, ich höre dich laut und deutlich."),
+                            ("Cinq sur cinq, je te reçois parfaitement.", "Five by five, reading you perfectly.", "Fünf von fünf, ich empfange dich perfekt."),
+                            ("Reçu fort et clair.", "Loud and clear.", "Laut und deutlich.")])
 
 
 def _here(s: Snapshot) -> str:
-    return pick("a_here", [("Je suis là, je t'écoute.", "I'm here, go ahead."), ("Toujours là, vas-y.", "Still here, go ahead."),
-                           ("Présent, je t'écoute.", "Here, listening.")])
+    return pick("a_here", [("Je suis là, je t'écoute.", "I'm here, go ahead.", "Ich bin da, schieß los."), ("Toujours là, vas-y.", "Still here, go ahead.", "Immer noch da, leg los."),
+                           ("Présent, je t'écoute.", "Here, listening.", "Bin da, ich höre.")])
 
 
 def _hello(s: Snapshot) -> str:
     import voice
-    return L(f"Salut ! Je suis là, {'prête' if voice.engineer_female() else 'prêt'} quand tu veux.", "Hi! I'm here, ready when you are.")
+    return L(f"Salut ! Je suis là, {'prête' if voice.engineer_female() else 'prêt'} quand tu veux.", "Hi! I'm here, ready when you are.", "Hallo! Ich bin da, bereit wenn du es bist.")
 
 
 def _thanks(s: Snapshot) -> str:
-    return pick("a_thanks", [("Avec plaisir.", "You're welcome."), ("De rien, c'est mon boulot.", "No problem, that's my job."),
-                             ("Pas de quoi, on fait équipe.", "Anytime, we're a team.")])
+    return pick("a_thanks", [("Avec plaisir.", "You're welcome.", "Gern geschehen."), ("De rien, c'est mon boulot.", "No problem, that's my job.", "Kein Problem, das ist mein Job."),
+                             ("Pas de quoi, on fait équipe.", "Anytime, we're a team.", "Jederzeit, wir sind ein Team.")])
 
 
 def _who(s: Snapshot) -> str:
     import voice
     name = voice.engineer_name()
     return L(f"Je suis {name}, ton {'ingénieure' if voice.engineer_female() else 'ingénieur'} de course.",
-             f"I'm {name}, your race engineer.")
+             f"I'm {name}, your race engineer.", f"Ich bin {name}, dein Renningenieur.")
 
 
 def _help(s: Snapshot) -> str:
     return L("Demande-moi l'essence, l'énergie, les pneus, le stand, les écarts, ta position, la météo, tes chronos, "
              "tes secteurs ou le comportement de la voiture. Je peux aussi régler le menu des stands.",
              "Ask me about fuel, energy, tyres, pit stop, gaps, position, weather, lap times, sectors "
-             "or car handling. I can also set up the pit menu.")
+             "or car handling. I can also set up the pit menu.", "Frag mich nach Sprit, Energie, Reifen, Boxenstopp, Abständen, Position, Wetter, Rundenzeiten, Sektoren, Stint, Verkehr oder Fahrverhalten. Ich kann auch das Boxenmenü einstellen.")
 
 
 def _time(s: Snapshot) -> str:
     import datetime
     n = datetime.datetime.now()
     h = "heure" if n.hour <= 1 else "heures"
-    return L(f"Il est {n.hour} {h} {n.minute:02d}." if n.minute else f"Il est {n.hour} {h}.", f"It's {n:%H:%M}.")
+    return L(f"Il est {n.hour} {h} {n.minute:02d}." if n.minute else f"Il est {n.hour} {h}.", f"It's {n:%H:%M}.", f"Es ist {n:%H:%M} Uhr.")
 
 
 def _how_are_you(s: Snapshot) -> str | None:
     if s.on_track:   # en piste, « ça va ? » = le point complet (sujet status)
         return None
     import voice
-    return L(f"Ça va très bien, merci ! {'Prête' if voice.engineer_female() else 'Prêt'} pour la course.", "All good, thanks! Ready for the race.")
+    return L(f"Ça va très bien, merci ! {'Prête' if voice.engineer_female() else 'Prêt'} pour la course.", "All good, thanks! Ready for the race.", "Alles gut, danke! Bereit fürs Rennen.")
 
 
 def _car(s: Snapshot) -> str:
@@ -490,22 +520,22 @@ def _car(s: Snapshot) -> str:
 
 def _joke(s: Snapshot) -> str:
     return L("Les blagues, c'est après le drapeau à damier. Reste concentré !",
-             "Jokes are for after the chequered flag. Stay focused!")
+             "Jokes are for after the chequered flag. Stay focused!", "Witze gibt's nach der Zielflagge. Bleib konzentriert!")
 
 
 CHAT = [
     (r"\bm entends?\b|\bm entendez\b|\bm as t en\b|\bm attends\b|\bmentend|tu m en tends|tu me recois|me recois tu|tu recois|radio check|test radio|\ballo\b|"
-     r"can you hear|do you hear|hear me|do you copy|you copy", _radio_check),
-    (r"\b(t es|tu es|es tu|t es bien) la\b|t es toujours la|\b(tu es|t es|es tu) (pret|prete)s?\b|on y va\b|you there|are you there|are you ready|ready\b", _here),
-    (r"^(bonjour|salut|hello|coucou|hey|bonsoir|hi)\b", _hello),
-    (r"\bmerci\b|thank", _thanks),
-    (r"qui es tu|t es qui|tu es qui|comment tu t appelles|ton nom|ton prenom|who are you|your name", _who),
-    (r"que (peux|sais) tu|qu est ce que tu (peux|sais)|sais faire|tu peux faire quoi|tu fais quoi|\baide\b|\bhelp\b|what can you", _help),
-    (r"quelle heure|l heure qu il|what time", _time),
-    (r"\bca va\b|comment vas tu|how are you", _how_are_you),
-    (r"blague|joke|funny", _joke),
+     r"can you hear|do you hear|hear me|do you copy|you copy|horst du mich|funkcheck|funk check|empfangst du mich", _radio_check),
+    (r"\b(t es|tu es|es tu|t es bien) la\b|t es toujours la|\b(tu es|t es|es tu) (pret|prete)s?\b|on y va\b|you there|are you there|are you ready|ready\b|bist du da|bist du bereit|\bbereit\b", _here),
+    (r"^(bonjour|salut|hello|coucou|hey|bonsoir|hi|hallo|servus|moin|guten (tag|abend|morgen))\b", _hello),
+    (r"\bmerci\b|thank|\bdanke", _thanks),
+    (r"qui es tu|t es qui|tu es qui|comment tu t appelles|ton nom|ton prenom|who are you|your name|wer bist du|wie heisst du|dein name", _who),
+    (r"que (peux|sais) tu|qu est ce que tu (peux|sais)|sais faire|tu peux faire quoi|tu fais quoi|\baide\b|\bhelp\b|what can you|was kannst du|\bhilfe\b", _help),
+    (r"quelle heure|l heure qu il|what time|wie spat|uhrzeit", _time),
+    (r"\bca va\b|comment vas tu|how are you|wie geht s|wie gehts|wie geht es dir", _how_are_you),
+    (r"blague|joke|funny|\bwitz", _joke),
     (r"\belms\b|\be l m s\b|\belm\b|\bwec\b|\bw e c\b|\bwc\b|quelle voiture|quelle categorie|quel championnat|"
-     r"which car|what car|which class|which championship", _car),
+     r"which car|what car|which class|which championship|welches auto|welche klasse|welche meisterschaft", _car),
 ]
 
 
@@ -529,97 +559,99 @@ NO_REPAIR = (r"\b(pas|plus|sans|aucune?) (besoin )?(de |d |la |les |des )?repar|
              r"\b(annule|annuler|enleve|enlever|retire|retirer|supprime|supprimer|oublie|leve|lever) (les |la |des )?repar|"
              r"\bne (le |la |les )?repar\w* (pas|rien)|\brepar\w* non\b|\bne repare pas|"
              r"don t (fix|repair)|no repairs?\b|skip (the )?repairs?|cancel (the )?repairs?|"
-             r"\b(remove|no) (the )?(repairs?|damage)")
-DO_REPAIR = (r"\b(repare|reparer|reparez|reparation|reparations|reparte)\b|\brepart (tout|juste|la carrosserie|seulement)|\bfix (the )?(car|damage)|\brepair")
+             r"\b(remove|no) (the )?(repairs?|damage)|"
+             r"\b(keine|ohne) reparatur|nicht reparier|reparatur (weg|streichen|abbestellen)")
+DO_REPAIR = (r"\b(repare|reparer|reparez|reparation|reparations|reparte)\b|\brepart (tout|juste|la carrosserie|seulement)|\bfix (the )?(car|damage)|\brepair|\breparier\w*|\breparatur\b")
 
 
 def repair_command(t: str) -> str | None:
     """« pas de réparation » / « répare la voiture » : change le menu des stands."""
-    if re.search(r"^(il faut|faut il|est ce qu|on doit|je dois|tu crois|ca vaut)", t):
+    if re.search(r"^(il faut|faut il|est ce qu|on doit|je dois|tu crois|ca vaut|muss|mussen|soll|sollen|sollten|lohnt)", t):
         return None   # c'est une question (« il faut réparer ? »), pas un ordre
     if re.search(NO_REPAIR, t):
         want = False
-    elif re.search(DO_REPAIR, t) and re.search(r"\b(repare|reparer|reparez|reparte|repart|tout|toutes|carrosserie|fix|repair the|do the|on repare)\b|"
+    elif re.search(DO_REPAIR, t) and re.search(r"\b(repare|reparer|reparez|reparte|repart|tout|toutes|carrosserie|fix|repair the|do the|on repare|repariere|reparier|alles|karosserie|komplett)\b|"
                                             r"\b(pour|juste|seulement|avec) (la |les |une |des )?repar", t):
         want = True
     else:
         return None
     if REPAIR_SET is None:
-        return L("Je ne peux pas changer les réparations pour l'instant.", "I can't change the repairs right now.")
-    body_only = want and bool(re.search(r"carrosserie|body|aero", t)) and not re.search(r"\btout\b|\ball\b|full", t)
+        return L("Je ne peux pas changer les réparations pour l'instant.", "I can't change the repairs right now.", "Ich kann die Reparaturen gerade nicht ändern.")
+    body_only = want and bool(re.search(r"carrosserie|body|aero|karosserie", t)) and not re.search(r"\btout\b|\ball\b|full|\balles\b|komplett", t)
     menu = REPAIR_SET(want, not body_only)
     if not want:
-        out = L("C'est noté, on ne répare pas au prochain arrêt.", "Copy, no repairs at the next stop.")
+        out = L("C'est noté, on ne répare pas au prochain arrêt.", "Copy, no repairs at the next stop.", "Verstanden, keine Reparatur beim nächsten Stopp.")
     elif body_only:
-        out = L("C'est noté, on répare seulement la carrosserie au prochain arrêt.", "Copy, bodywork only at the next stop.")
+        out = L("C'est noté, on répare seulement la carrosserie au prochain arrêt.", "Copy, bodywork only at the next stop.", "Verstanden, nur Karosserie beim nächsten Stopp.")
     else:
-        out = L("C'est noté, on répare tout au prochain arrêt.", "Copy, full repairs at the next stop.")
+        out = L("C'est noté, on répare tout au prochain arrêt.", "Copy, full repairs at the next stop.", "Verstanden, komplette Reparatur beim nächsten Stopp.")
     if menu:
-        out += L(" Je corrige le menu des stands.", " Updating the pit menu.")
+        out += L(" Je corrige le menu des stands.", " Updating the pit menu.", " Ich passe das Boxenmenü an.")
     return out
 
 
 NO_FUEL = (r"\b(pas|sans|aucun|zero|0) (de |d |du )?(essence|ravitaill\w*|carbu\w*|plein|fuel|refuel\w*|litres?)\b|"
            r"\bne (mets|met|mettez|ajoute|rajoute|remets) (pas|rien) (d |de )?(essence|carbu)|"
-           r"\bno (fuel|refuel\w*)\b|without (fuel|refuel\w*)|don t (add )?(any )?fuel|skip (the )?(fuel|refuel\w*)")
+           r"\bno (fuel|refuel\w*)\b|without (fuel|refuel\w*)|don t (add )?(any )?fuel|skip (the )?(fuel|refuel\w*)|"
+           r"\b(kein|keinen|ohne|null) (sprit|benzin|nachtanken|tanken)|nicht (nach)?tanken")
 FUEL_SET = None   # fonction() : pas d'essence au prochain arrêt ; renvoie True si le menu est re-réglé
 
 
 def fuel_command(t: str) -> str | None:
     """« sans ravitaillement » / « pas d'essence » : on ne remet pas d'essence au prochain arrêt."""
-    if re.search(r"^(il faut|faut il|est ce qu|on doit|je dois|tu crois|ca vaut)", t) or not re.search(NO_FUEL, t):
+    if re.search(r"^(il faut|faut il|est ce qu|on doit|je dois|tu crois|ca vaut|muss|soll|sollen|lohnt)", t) or not re.search(NO_FUEL, t):
         return None
     if FUEL_SET is None:
-        return L("Je ne peux pas changer l'essence pour l'instant.", "I can't change the fuel right now.")
+        return L("Je ne peux pas changer l'essence pour l'instant.", "I can't change the fuel right now.", "Ich kann den Sprit gerade nicht ändern.")
     menu = FUEL_SET()
-    out = L("C'est noté, pas d'essence au prochain arrêt.", "Copy, no fuel at the next stop.")
-    return out + (L(" Je corrige le menu des stands.", " Updating the pit menu.") if menu else "")
+    out = L("C'est noté, pas d'essence au prochain arrêt.", "Copy, no fuel at the next stop.", "Verstanden, kein Sprit beim nächsten Stopp.")
+    return out + (L(" Je corrige le menu des stands.", " Updating the pit menu.", " Ich passe das Boxenmenü an.") if menu else "")
 
 
 # ---- pneus pneu par pneu : « change juste les deux avant », « les pneus gauches », « garde les pneus »
 TYRES_SET = None   # fonction(roues: tuple d'indices 0=AVG 1=AVD 2=ARG 3=ARD) ; renvoie True si le menu est re-réglé
-_FRONT, _REAR, _LEFT, _RIGHT = r"avants?|fronts?", r"arrieres?|rears?|back", r"gauches?|left", r"droite?s?|right"
+_FRONT, _REAR, _LEFT, _RIGHT = r"avants?|fronts?|vorne|vorder\w*", r"arrieres?|rears?|back|hinten|hinter\w*", r"gauches?|left|links|linke\w*", r"droite?s?|right|rechts|rechte\w*"
 
 
 def wheels_text(w) -> str:
     """(0, 1) -> « les deux pneus avant »"""
     w = tuple(sorted(w))
-    named = {(): L("on garde les pneus", "we keep the tyres"), (0, 1, 2, 3): L("les quatre pneus", "all four tyres"),
-             (0, 1): L("les deux pneus avant", "the two fronts"), (2, 3): L("les deux pneus arrière", "the two rears"),
-             (0, 2): L("les deux pneus gauches", "the two left tyres"), (1, 3): L("les deux pneus droits", "the two right tyres")}
+    named = {(): L("on garde les pneus", "we keep the tyres", "wir behalten die Reifen"), (0, 1, 2, 3): L("les quatre pneus", "all four tyres", "alle vier Reifen"),
+             (0, 1): L("les deux pneus avant", "the two fronts", "die beiden Vorderreifen"), (2, 3): L("les deux pneus arrière", "the two rears", "die beiden Hinterreifen"),
+             (0, 2): L("les deux pneus gauches", "the two left tyres", "die beiden linken Reifen"), (1, 3): L("les deux pneus droits", "the two right tyres", "die beiden rechten Reifen")}
     if w in named:
         return named[w]
     if len(w) == 1:
-        return L(f"le pneu {_tyre_names(list(w))}", f"the {_tyre_names(list(w))} tyre")
+        return L(f"le pneu {_tyre_names(list(w))}", f"the {_tyre_names(list(w))} tyre", f"den Reifen {_tyre_names(list(w))}")
     names = [_tyre_names([i]) for i in w]
-    return L("les pneus ", "the ") + ", ".join(names[:-1]) + L(" et ", " and ") + names[-1] + L("", " tyres")
+    return L("les pneus ", "the ", "die Reifen ") + ", ".join(names[:-1]) + L(" et ", " and ", " und ") + names[-1] + L("", " tyres", "")
 
 
 def parse_wheels(t: str):
     """Renvoie un tuple de roues, () pour « on garde les pneus », ou None si la phrase ne parle pas de changer des pneus."""
-    if not re.search(r"\b(pneus?|gommes?|roues?|tyres?|tires?|wheels?)\b|\bles (deux|2|quatre|4) (avant|arriere|gauche|droit)|"
+    if not re.search(r"\b(pneus?|gommes?|roues?|tyres?|tires?|wheels?|reifen|rader|rad)\b|\bles (deux|2|quatre|4) (avant|arriere|gauche|droit)|"
                      r"\b(seulement|juste|que|change|changez|uniquement) (l |le |les )?(avant|arriere)s? (gauche|droit)", t):
         return None
-    if re.search(r"^(il faut|faut il|est ce qu|on doit|je dois|tu crois|ca vaut|comment|combien|quel|quand)", t):
+    if re.search(r"^(il faut|faut il|est ce qu|on doit|je dois|tu crois|ca vaut|comment|combien|quel|quand|muss|soll|sollen|wie|wann|welche|wieviel|lohnt)", t):
         return None   # une question sur les pneus, pas un ordre
-    if re.search(r"\b(pluie|mouille|wets?|slicks?|secs?)\b", t):
+    if re.search(r"\b(pluie|mouille|wets?|slicks?|secs?|regenreifen|trockenreifen)\b", t):
         return None   # le type de pneus (pluie / slicks) est géré par la stratégie météo
     if re.search(r"\b(garde|gardez|garder|on garde|laisse|laisser)\b.*\b(pneus?|gommes?)\b|"
                  r"\b(pas|aucun|sans) (de |d |les |le )?(changement de )?(pneus?|gommes?)\b|"
-                 r"\bne (change|changez|changer|touche|touchez) (pas|rien)\b.*\bpneu|keep (the )?tyres|no (new )?tyres", t):
+                 r"\bne (change|changez|changer|touche|touchez) (pas|rien)\b.*\bpneu|keep (the )?tyres|no (new )?tyres|(behalt|behalte|lass|lassen)\w*.*reifen|keine (neuen )?reifen|reifen (bleiben|drauf)", t):
         return ()
     if not re.search(r"\b(change|changez|changer|changes|remplace|remplacer|mets|met|mettez|monte|chausse|prepare|preparez|prevois|"
-                     r"seulement|juste|que|uniquement|neufs?|nouveaux?|change|swap|new|only|just|fit)\b", t):
+                     r"seulement|juste|que|uniquement|neufs?|nouveaux?|change|swap|new|only|just|fit|wechsel\w*|tausch\w*|neue?n?|nur|frische?n?)\b", t):
         return None
-    if re.search(r"\b(quatre|4|tous|toutes|all|four)\b", t):
+    if re.search(r"\b(quatre|4|tous|toutes|all|four|alle|vier)\b", t):
         return (0, 1, 2, 3)
     f, r = bool(re.search(rf"\b({_FRONT})", t)), bool(re.search(rf"\b({_REAR})", t))
     l, d = bool(re.search(rf"\b({_LEFT})\b", t)), bool(re.search(rf"\b({_RIGHT})\b", t))
     one = bool(re.search(r"\b(le|un|l|seul|one) (seul )?(pneu |tyre |tire )?(avant|arriere|front|rear)\b", t)) and \
-        not re.search(r"\b(les|deux|2|two|both)\b", t)
+        not re.search(r"\b(les|deux|2|two|both|beide|beiden|zwei)\b", t)
     if not (f or r or l or d):
         # « change les pneus » sans préciser : les quatre
-        return (0, 1, 2, 3) if re.search(r"\b(change|changez|changer|remplace|mets|met)\b.*\b(pneus|tyres|tires)\b", t) else None
+        return (0, 1, 2, 3) if re.search(r"\b(change|changez|changer|remplace|mets|met|wechsel\w*|tausch\w*)\b.*\b(pneus|tyres|tires|reifen)\b", t) else None
     fr = [0, 1] if f and not r else [2, 3] if r and not f else [0, 1, 2, 3]   # indices des roues retenues (avant / arrière)
     side = [0, 2] if l and not d else [1, 3] if d and not l else [0, 1, 2, 3]
     w = tuple(i for i in range(4) if i in fr and i in side)
@@ -633,14 +665,14 @@ def tyre_command(t: str) -> str | None:
     if w is None:
         return None
     if TYRES_SET is None:
-        return L("Je ne peux pas changer les pneus pour l'instant.", "I can't change the tyres right now.")
+        return L("Je ne peux pas changer les pneus pour l'instant.", "I can't change the tyres right now.", "Ich kann die Reifen gerade nicht ändern.")
     menu = TYRES_SET(w)
     if not w:
-        out = L("C'est noté, on garde les pneus au prochain arrêt.", "Copy, we keep the tyres at the next stop.")
+        out = L("C'est noté, on garde les pneus au prochain arrêt.", "Copy, we keep the tyres at the next stop.", "Verstanden, wir behalten die Reifen beim nächsten Stopp.")
     else:
         what = wheels_text(w)
-        out = L(f"C'est noté, on change {what} au prochain arrêt.", f"Copy, we change {what} at the next stop.")
-    return out + (L(" Je corrige le menu des stands.", " Updating the pit menu.") if menu else "")
+        out = L(f"C'est noté, on change {what} au prochain arrêt.", f"Copy, we change {what} at the next stop.", f"Verstanden, wir wechseln {what} beim nächsten Stopp.")
+    return out + (L(" Je corrige le menu des stands.", " Updating the pit menu.", " Ich passe das Boxenmenü an.") if menu else "")
 
 
 NUM_WORDS = {"un": 1, "premier": 1, "deux": 2, "trois": 3, "quatre": 4, "cinq": 5, "six": 6, "sept": 7, "huit": 8,
@@ -649,7 +681,7 @@ NUM_WORDS = {"un": 1, "premier": 1, "deux": 2, "trois": 3, "quatre": 4, "cinq": 
 
 def _wanted_place(t: str) -> int | None:
     """« P6 », « p 6 », « pe six », « le 6e », « la sixième », « position 6 » -> 6."""
-    m = re.search(r"\bp ?(\d{1,2})\b|\bposition (\d{1,2})\b|\b(\d{1,2}) ?(e|eme|ieme)\b", t)
+    m = re.search(r"\bp ?(\d{1,2})\b|\b(?:position|platz) (\d{1,2})\b|\b(\d{1,2}) ?(e|eme|ieme)\b", t)
     if m:
         return int(next(g for g in m.groups()[:3] if g))
     m = re.search(r"\b(?:pe|pee|p) (" + "|".join(NUM_WORDS) + r")\b", t)
@@ -665,47 +697,47 @@ def _wanted_place(t: str) -> int | None:
 
 def rival(t: str, s: Snapshot) -> str | None:
     """Question sur une voiture précise : « où est P6 ? », « P2 roule plus vite ? », « dans quel secteur P6 est plus rapide ? »."""
-    if not s.rivals or re.search(r"\b(je suis|suis je|ma position|ma place)\b", t):
+    if not s.rivals or re.search(r"\b(je suis|suis je|ma position|ma place|bin ich|ich bin|mein platz|meine position)\b", t):
         return None
     n = _wanted_place(t)
     if n is None:
         return None
     me_pos = s.class_position or s.position
     if n == me_pos and not any(r.get("place") == n for r in s.rivals):
-        return L(f"P{n}, c'est toi !", f"P{n}, that's you!")
+        return L(f"P{n}, c'est toi !", f"P{n}, that's you!", f"P{n}, das bist du!")
     # P = position générale si une voiture de ta catégorie l'occupe, sinon position dans ta catégorie
     car = next((r for r in s.rivals if r.get("place") == n), None) or next((r for r in s.rivals if r.get("cpos") == n), None)
     if car is None:
-        return L(f"Je ne vois pas de P{n} dans ta catégorie.", f"I can't see a P{n} in your class.")
-    name = (car.get("name") or "").split(" ")[-1] or L("ce pilote", "that driver")
+        return L(f"Je ne vois pas de P{n} dans ta catégorie.", f"I can't see a P{n} in your class.", f"Ich sehe keinen P{n} in deiner Klasse.")
+    name = (car.get("name") or "").split(" ")[-1] or L("ce pilote", "that driver", "dieser Fahrer")
     who = f"P{n}, {name},"
     parts = []
     g = car.get("gap")
     if car.get("in_pits"):
-        parts.append(L(f"{who} est aux stands.", f"{who} is in the pits."))
+        parts.append(L(f"{who} est aux stands.", f"{who} is in the pits.", f"{who} ist in der Box."))
     elif g is not None:
         parts.append(L(f"{who} est {_sec(abs(g))} {'devant' if g > 0 else 'derrière'} toi.",
-                       f"{who} is {_sec(abs(g))} {'ahead of' if g > 0 else 'behind'} you."))
+                       f"{who} is {_sec(abs(g))} {'ahead of' if g > 0 else 'behind'} you.", f"{who} ist {_sec(abs(g))} {'vor' if g > 0 else 'hinter'} dir."))
     else:
-        parts.append(L(f"{who} n'est pas dans le même tour que toi.", f"{who} isn't on the same lap as you."))
+        parts.append(L(f"{who} n'est pas dans le même tour que toi.", f"{who} isn't on the same lap as you.", f"{who} ist nicht in derselben Runde wie du."))
     mine, his = s.last_lap, car.get("last_lap")
     if mine and his:
         d = his - mine
         if abs(d) < 0.1:
-            parts.append(L("Vous tournez dans le même rythme.", "You're lapping at the same pace."))
+            parts.append(L("Vous tournez dans le même rythme.", "You're lapping at the same pace.", "Ihr fahrt das gleiche Tempo."))
         else:
             parts.append(L(f"Il tourne {_f(abs(d))} seconde{'s' if abs(d) >= 2 else ''} {'plus vite' if d < 0 else 'moins vite'} que toi au dernier tour.",
-                           f"He was {_f(abs(d))} s {'quicker' if d < 0 else 'slower'} than you last lap."))
-    if re.search(r"secteur|perd|plus rapide|plus vite|gagne|sector", t):
+                           f"He was {_f(abs(d))} s {'quicker' if d < 0 else 'slower'} than you last lap.", f"Er war in der letzten Runde {_f(abs(d))} s {'schneller' if d < 0 else 'langsamer'} als du."))
+    if re.search(r"secteur|perd|plus rapide|plus vite|gagne|sector|sektor|schneller|verlier|gewinn", t):
         a, b = s.sectors, car.get("sectors")
         if a and b and all(a) and all(b):
             diffs = [b[i] - a[i] for i in range(3)]
             i = min(range(3), key=lambda k: diffs[k])
             if diffs[i] < -0.05:
                 parts.append(L(f"Il te prend le plus de temps dans le secteur {i + 1}, {_f(-diffs[i])} seconde.",
-                               f"He's quickest against you in sector {i + 1}, {_f(-diffs[i])} s."))
+                               f"He's quickest against you in sector {i + 1}, {_f(-diffs[i])} s.", f"Am meisten nimmt er dir in Sektor {i + 1} ab, {_f(-diffs[i])} s."))
             else:
-                parts.append(L("Tu es plus rapide que lui dans les trois secteurs.", "You're quicker than him in all three sectors."))
+                parts.append(L("Tu es plus rapide que lui dans les trois secteurs.", "You're quicker than him in all three sectors.", "Du bist in allen drei Sektoren schneller als er."))
     return " ".join(parts)
 
 
@@ -716,7 +748,7 @@ def answer(text: str, s: Snapshot, p: Plan) -> str:
         return c
     t = _norm(text).strip()
     if not t:
-        return L("Je n'ai rien entendu, répète.", "I didn't hear anything, say again.")
+        return L("Je n'ai rien entendu, répète.", "I didn't hear anything, say again.", "Ich habe nichts gehört, sag nochmal.")
     LAST_TEXT = t
     # ordres pour le prochain arrêt : réparations et/ou essence (« répare mais sans ravitaillement »)
     f = fuel_command(t)
@@ -725,26 +757,26 @@ def answer(text: str, s: Snapshot, p: Plan) -> str:
     orders = [x for x in (r, w, f) if x]
     if orders:
         # « répare, change les avants et pas d'essence » : une seule phrase, « je corrige le menu » une fois à la fin
-        tail = [L(" Je corrige le menu des stands.", " Updating the pit menu.")]
+        tail = [L(" Je corrige le menu des stands.", " Updating the pit menu.", " Ich passe das Boxenmenü an.")]
         fix = any(tail[0] in o for o in orders)
         body = [o.replace(tail[0], "") for o in orders]
-        body = [body[0]] + [b.replace("C'est noté, ", "Et ").replace("Copy, ", "And ") for b in body[1:]]
-        nxt = (L(" au prochain arrêt", " at the next stop"))
+        body = [body[0]] + [b.replace("C'est noté, ", "Et ").replace("Copy, ", "And ").replace("Verstanden, ", "Und ") for b in body[1:]]
+        nxt = (L(" au prochain arrêt", " at the next stop", " beim nächsten Stopp"))
         body = [b.replace(nxt, "") for b in body[:-1]] + body[-1:]
         return " ".join(body) + (tail[0] if fix else "")
     if not s.on_track:
         # hors piste, « comment ça va » est une politesse, pas une demande de point complet
-        polite = bool(re.search(r"\bca va\b|comment vas tu|how are you", t))
+        polite = bool(re.search(r"\bca va\b|comment vas tu|how are you|wie geht", t))
         asks_data = any(re.search(pattern, t) for pattern, fn in TOPICS if not (polite and fn is status))
         said = chat(t, s, alone=not asks_data)
         if asks_data:
-            said.append(L("Je n'ai pas encore de données, monte dans la voiture.", "No data yet, get in the car."))
+            said.append(L("Je n'ai pas encore de données, monte dans la voiture.", "No data yet, get in the car.", "Noch keine Daten, steig ins Auto."))
         if said:
             return " ".join(said)
         return L("Je t'entends, mais je n'ai pas compris. Une fois en piste, demande-moi l'essence, les pneus, "
                  "le stand, les écarts, la position ou la météo.",
                  "I hear you, but I didn't get that. Once you're on track, ask me about fuel, tyres, "
-                 "pit stop, gaps, position or weather.")
+                 "pit stop, gaps, position or weather.", "Ich höre dich, habe es aber nicht verstanden. Auf der Strecke kannst du mich nach Sprit, Reifen, Boxenstopp, Abständen, Position oder Wetter fragen.")
     rv = rival(t, s)
     if rv:
         return rv
@@ -763,7 +795,7 @@ def answer(text: str, s: Snapshot, p: Plan) -> str:
         # longue phrase sans question claire (tu parlais peut-être à quelqu'un d'autre) : on demande de répéter
         if len(t.split()) > 9:
             return L("Je n'ai pas compris ta question. Pose-la-moi en une phrase courte.",
-                     "I didn't get your question. Ask me in one short sentence.")
+                     "I didn't get your question. Ask me in one short sentence.", "Ich habe deine Frage nicht verstanden. Frag mich in einem kurzen Satz.")
         # phrase courte : on donne le point complet
-        return L("Pas sûr d'avoir compris, voilà le point. ", "Not sure I got that, here's the update. ") + status(s, p)
+        return L("Pas sûr d'avoir compris, voilà le point. ", "Not sure I got that, here's the update. ", "Nicht sicher, ob ich das verstanden habe, hier die Lage. ") + status(s, p)
     return " ".join(said + [r[1] for r in replies[:3]])

@@ -4,11 +4,53 @@
 
 [![Téléchargements / Downloads](https://img.shields.io/github/downloads/ApexRadio/apex-radio/total?label=t%C3%A9l%C3%A9chargements%20%2F%20downloads&color=00b8d4)](https://github.com/ApexRadio/apex-radio/releases) [![Version](https://img.shields.io/github/v/release/ApexRadio/apex-radio?label=version&color=00b8d4)](https://github.com/ApexRadio/apex-radio/releases/latest)
 
-🇬🇧 [English](#english) · 🇫🇷 [Français](#français)
+🇬🇧 [English](#english) · 🇫🇷 [Français](#français) · 🇩🇪 [Deutsch](#deutsch)
 
 **⬇️ [Download / Télécharger](https://github.com/ApexRadio/apex-radio/releases/latest)** · 💬 [Discord](https://discord.gg/ZHg4qXd26g) · ❤️ [Patreon](https://www.patreon.com/lolotuner) · ☕ [Ko-fi](https://ko-fi.com/apexradio)
 
 ![Apex Radio dashboard](docs/dashboard-en.png)
+
+---
+
+## Deutsch
+
+> **Fork mit deutscher Sprache und Langstrecken-Paket.** Basiert auf [ApexRadio/apex-radio](https://github.com/ApexRadio/apex-radio)
+> von lolotuner (GPL v3). Alle Originalfunktionen bleiben erhalten, dazu kommen Deutsch (Funk, Spracherkennung, Dashboard)
+> und neue Infos für 6-, 8-, 12- und 24-Stunden-Rennen.
+
+Apex Radio liest Le Mans Ultimate live aus und spricht über Funk mit dir, wie ein echter Renningenieur.
+Taste am Lenkrad drücken, Frage stellen, Antwort bekommen. Alles läuft lokal auf deinem PC: kein Abo, kein Konto,
+nach der Installation kein Internet nötig.
+
+### Deutsch
+- **Funk auf Deutsch**: alle Ansagen und Antworten. Stimmen „Thorsten“ (männlich) und „Kerstin“ (weiblich), beide CC0.
+- **Spracherkennung auf Deutsch** (Whisper), mit deutschen Schlüsselwörtern: „Wie viel Sprit habe ich?“, „Wann komme ich rein?“,
+  „Hole ich auf den Vordermann auf?“, „Keine Reparatur und wechsel nur die Vorderreifen“, „Ruhe“ / „Sprich wieder“, „Wiederhol“ …
+- **Dashboard und Handy-Ansicht auf Deutsch**: Sprach-Taste oben schaltet FR → EN → DE. Bei deutschem Windows startet die App direkt auf Deutsch.
+
+### Langstrecke (neu)
+Neue Karte **Langstrecke** im Dashboard, Einstellungen unter ⚙️ → **Langstrecke**:
+- **Stint und Fahrerwechsel**: Stint X von Y, Runden und Minuten im Stint, Ansage „Fahrerwechsel am Ende dieses Stints“
+  (nach *Stints pro Fahrer*, z. B. 2 = Doppelstint) und Mindestrunden pro Fahrer (z. B. 16,7 % der Distanz).
+- **Spritziel**: Ziel-Runden pro Stint (z. B. 31) → Zielverbrauch pro Runde, was du ab jetzt brauchst, wie viel % du sparen musst.
+  Klappt mit virtueller Energie (%) und mit Sprit (Liter).
+- **Reifenkontingent**: zählt die Reifen für Qualy + Rennen selbst mit (z. B. 26 = 6 Sätze + 2 Einzelreifen),
+  Runden auf dem aktuellen Satz und ob die Sätze bis ins Ziel reichen.
+- **Verkehr vorausberechnet**: nächster langsamerer Pulk (z. B. „3 GT3, 7 Sekunden vor dir, du holst sie in etwa 60 Sekunden ein, etwa in Kurve 5“),
+  nächste schnellere Klasse von hinten, und für die eigene Klasse: wann du den Vordermann einholst bzw. der Hintermann dich,
+  jeweils mit „vor / nach deinem nächsten Stopp“. Gerechnet mit dem tatsächlichen Rundentempo jedes Autos.
+- **Klasse**: Abstände und Anzahl der Boxenstopps der direkten Gegner im Vergleich zu deinen.
+
+Fragen per Funk: „Wie ist der Stint?“, „Wann ist Fahrerwechsel?“, „Wie viel muss ich sparen?“ / „Spritziel?“,
+„Wie viele Reifen habe ich noch?“, „Wann kommt der nächste Verkehr?“ / „Wann hole ich die GT3 ein?“, „Wie stehen wir in der Klasse?“.
+
+### Installation
+Wie im Original (siehe unten), nur das Installationsprogramm aus den **Releases dieses Forks** nehmen.
+Aus dem Quellcode: `Lancer.bat` (braucht Python 3.11+). Zum Ausprobieren ohne Spiel: `Demo.bat`.
+
+### Hinweise
+- Bei Fahrerwechseln zählt Apex nur die Runden, die es auf dem eigenen PC sieht. Am besten läuft Apex bei jedem Fahrer.
+- Neue Funktionen sind getestet mit der eingebauten Demo, noch nicht in einem echten 8h-Rennen. Rückmeldungen willkommen.
 
 ---
 

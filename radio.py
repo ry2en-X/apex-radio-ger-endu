@@ -32,6 +32,11 @@ PROMPT = ("Radio d'ingénieur de course, Le Mans Ultimate. Questions du pilote :
           "Dans quel secteur je perds du temps ? L'état de mes pneus ? Quand est-ce que je rentre au stand ? Prépare l'arrêt. "
           "Répare la carrosserie. Dégâts, écart, position, classement, tours restants, chrono, meilleur tour, pénalité, setup, "
           "sous-virage, survirage, répète, silence. ELMS, WEC, LMP2, Hypercar, GT3.")
+PROMPT_DE = ("Renningenieur-Funk, Le Mans Ultimate. Fragen des Fahrers: Wie viel Sprit habe ich noch? Wie ist das Wetter? "
+             "Kommt Regen? Kommt der Hintermann näher? Hole ich auf den Vordermann auf? In welchem Sektor verliere ich Zeit? "
+             "Wie sind meine Reifen? Wann komme ich in die Box? Bereite den Stopp vor. Repariere die Karosserie. "
+             "Stint, Fahrerwechsel, Spritziel, Reifensätze, Verkehr, GT3, Hypercar, Klasse, Abstand, Position, "
+             "Restzeit, Rundenzeit, Bestzeit, Strafe, Setup, Untersteuern, Übersteuern, wiederhole, Ruhe. ELMS, WEC, LMP2.")
 
 
 def load_config() -> dict:
@@ -102,10 +107,10 @@ class Radio:
     @staticmethod
     def label(b) -> str:
         if not b:
-            return L("aucun", "none")
+            return L("aucun", "none", "keine")
         if b["type"] == "key":
-            return L(f"clavier · {key_name(b['vk'])}", f"keyboard · {key_name(b['vk'])}")
-        return L(f"{b['name']} · bouton {b['button'] + 1}", f"{b['name']} · button {b['button'] + 1}")
+            return L(f"clavier · {key_name(b['vk'])}", f"keyboard · {key_name(b['vk'])}", f"Tastatur · {key_name(b['vk'])}")
+        return L(f"{b['name']} · bouton {b['button'] + 1}", f"{b['name']} · button {b['button'] + 1}", f"{b['name']} · Taste {b['button'] + 1}")
 
     def info(self) -> dict:
         b = self.cfg.get("ptt")
@@ -165,7 +170,7 @@ class Radio:
             print("  Reconnaissance vocale : prête")
         except Exception as e:
             import traceback; traceback.print_exc()
-            self.detail = L(f"Reconnaissance vocale indisponible : {e!r}", f"Speech recognition unavailable: {e!r}")
+            self.detail = L(f"Reconnaissance vocale indisponible : {e!r}", f"Speech recognition unavailable: {e!r}", f"Spracherkennung nicht verfügbar: {e!r}")
             print("  " + self.detail)
         finally:
             self.asr_loading = False
@@ -186,7 +191,7 @@ class Radio:
                 audio = (audio * (0.7 / peak)).astype(audio.dtype)   # micro trop bas : on remonte le volume
         except Exception:
             pass
-        segs, _ = self._whisper.transcribe(audio, language=i18n.LANG, beam_size=3, initial_prompt=PROMPT_EN if i18n.en() else PROMPT,
+        segs, _ = self._whisper.transcribe(audio, language=i18n.LANG, beam_size=3, initial_prompt=PROMPT_DE if i18n.de() else PROMPT_EN if i18n.en() else PROMPT,
                                            condition_on_previous_text=False, vad_filter=False)
         text = " ".join(s.text.strip() for s in segs).strip()
         self._keep_clip(audio, text)
@@ -238,7 +243,7 @@ class Radio:
             mics = [m for m in self.mics() if m["index"] is not None]
             if not mics:
                 raise RuntimeError(L("Aucun micro trouvé. Branche ton micro ou ton casque, puis choisis-le dans la liste.",
-                                     "No microphone found. Plug in your mic or headset, then pick it in the list."))
+                                     "No microphone found. Plug in your mic or headset, then pick it in the list.", "Kein Mikrofon gefunden. Steck dein Mikrofon oder Headset ein und wähle es in der Liste."))
             dev = mics[0]["index"]
             print(f"  Pas de micro par défaut dans Windows : j'utilise « {mics[0]['name']} »")
         name = sd.query_devices(dev if dev is not None else sd.default.device[0])["name"]
@@ -268,13 +273,13 @@ class Radio:
                                 "et vérifie Paramètres Windows > Confidentialité > Microphone "
                                 "(« Autoriser les applications de bureau »).",
                                 "The mic is only recording silence. Pick your mic in the list below, "
-                                "and check Windows Settings > Privacy > Microphone (\"Let desktop apps access your microphone\").")
+                                "and check Windows Settings > Privacy > Microphone (\"Let desktop apps access your microphone\").", "Das Mikrofon nimmt nur Stille auf. Wähle dein Mikrofon in der Liste unten und prüfe Windows-Einstellungen > Datenschutz > Mikrofon („Desktop-Apps Zugriff auf das Mikrofon erlauben“).")
                 self.on_question("")
                 return
             self.detail = ""
             if self._whisper is None:
                 self.state = "prêt"
-                self.detail = L("La reconnaissance vocale se charge encore…", "Speech recognition is still loading…")
+                self.detail = L("La reconnaissance vocale se charge encore…", "Speech recognition is still loading…", "Die Spracherkennung lädt noch…")
                 return
             self.state = "réflexion"
             t = time.time()
@@ -391,7 +396,7 @@ class Radio:
         if self.learn_target in SHORTCUTS:
             if binding == self.cfg.get("ptt"):
                 self.detail = L("Ce bouton sert déjà à la radio : choisis-en un autre.",
-                                "That button is already your radio button: pick another one.")
+                                "That button is already your radio button: pick another one.", "Diese Taste ist schon deine Funktaste: Wähle eine andere.")
             else:
                 sc = self.cfg.setdefault("shortcuts", {})
                 for k in SHORTCUTS:                    # un bouton = une seule action
@@ -483,7 +488,7 @@ class Radio:
                             self.detail = L(f"Micro indisponible : {e!r}. Choisis ton micro dans la liste ci-dessous, et vérifie "
                                             "Paramètres Windows > Son > Entrée (micro par défaut) et Confidentialité > Microphone.",
                                             f"Microphone unavailable: {e!r}. Pick your mic in the list below, and check "
-                                            "Windows Settings > Sound > Input (default mic) and Privacy > Microphone.")
+                                            "Windows Settings > Sound > Input (default mic) and Privacy > Microphone.", f"Mikrofon nicht verfügbar: {e!r}. Wähle dein Mikrofon in der Liste unten und prüfe Windows-Einstellungen > Sound > Eingabe (Standardmikrofon) und Datenschutz > Mikrofon.")
                         print("  " + self.detail)
                 elif not toggle and not now and pressed and self.state == "écoute":
                     audio = self._stop_rec()

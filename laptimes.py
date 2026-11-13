@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 
 from telemetry import Snapshot
+import i18n
 from i18n import L as tr, dec, en
 
 HERE = Path(__file__).parent
@@ -35,7 +36,7 @@ def fmt_lap(t: float | None) -> str:
 
 def _say_lap(t: float) -> str:
     m, r = divmod(t, 60)
-    return dec(f"{int(m)} minute {r:.2f}") if m else dec(tr(f"{r:.2f} secondes", f"{r:.2f} seconds"))
+    return dec(f"{int(m)} minute {r:.2f}") if m else dec(tr(f"{r:.2f} secondes", f"{r:.2f} seconds", f"{r:.2f} Sekunden"))
 
 
 MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août",
@@ -45,6 +46,9 @@ MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août
 def _say_date(d: str) -> str:
     try:
         j, m, a = d.split("/")
+        if i18n.de():
+            return f"{int(j)}. " + ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September",
+                                    "Oktober", "November", "Dezember"][int(m) - 1]
         if en():
             return ["January", "February", "March", "April", "May", "June", "July", "August", "September",
                     "October", "November", "December"][int(m) - 1] + f" {int(j)}"
@@ -56,10 +60,10 @@ def _say_date(d: str) -> str:
 def _dixiemes(x: float) -> str:
     d = round(abs(x) * 10)
     if d == 0:
-        return tr("moins d'un dixième", "less than a tenth")
+        return tr("moins d'un dixième", "less than a tenth", "weniger als ein Zehntel")
     if d >= 10:
-        return dec(tr(f"{abs(x):.1f} seconde{'s' if abs(x) >= 2 else ''}", f"{abs(x):.1f} seconds"))
-    return tr(f"{d} dixième" + ("s" if d > 1 else ""), f"{d} tenth" + ("s" if d > 1 else ""))
+        return dec(tr(f"{abs(x):.1f} seconde{'s' if abs(x) >= 2 else ''}", f"{abs(x):.1f} seconds", f"{abs(x):.1f} Sekunden"))
+    return tr(f"{d} dixième" + ("s" if d > 1 else ""), f"{d} tenth" + ("s" if d > 1 else ""), f"{d} Zehntel")
 
 
 class LapTimes:
@@ -206,11 +210,11 @@ class LapTimes:
             rec = new
             if old:
                 say(None, tr(f"Nouveau record perso ici ! {_say_lap(lap)}, tu gagnes {_dixiemes(old - lap)}.",
-                             f"New personal best here! {_say_lap(lap)}, {_dixiemes(old - lap)} quicker.")
+                             f"New personal best here! {_say_lap(lap)}, {_dixiemes(old - lap)} quicker.", f"Neue persönliche Bestzeit hier! {_say_lap(lap)}, {_dixiemes(old - lap)} schneller.")
                     + (self._sector_bits(vs_old) if s.session != "course" else ""), elapsed=et)
             elif self._lap_count > 1:
                 say(None, tr(f"Premier chrono de référence sur ce circuit : {_say_lap(lap)}.",
-                             f"First reference lap on this track: {_say_lap(lap)}."), elapsed=et)
+                             f"First reference lap on this track: {_say_lap(lap)}.", f"Erste Referenzrunde auf dieser Strecke: {_say_lap(lap)}."), elapsed=et)
         if valid and sec and rec:
             best = rec.get("best_sectors") or sec
             rec["best_sectors"] = [min(a, b) for a, b in zip(best, sec)]
@@ -225,11 +229,11 @@ class LapTimes:
                      "vs_record": [a - b for a, b in zip(sec, rec["sectors"])] if (sec and rec and rec.get("sectors")) else None}
 
         if invalid and not in_pits:
-            say(None, tr("Tour invalidé, attention aux limites de piste.", "Lap invalidated, watch the track limits."), elapsed=et)
+            say(None, tr("Tour invalidé, attention aux limites de piste.", "Lap invalidated, watch the track limits.", "Runde ungültig, achte auf die Track Limits."), elapsed=et)
         elif valid and s.session in ("qualif", "essais") and rec0 and lap >= rec0["lap"] and vs_old:
             # qualif / essais : où tu as gagné et perdu par rapport à ton record
             say(None, tr(f"{_say_lap(lap)}, à {_dixiemes(lap - rec0['lap'])} du record.",
-                         f"{_say_lap(lap)}, {_dixiemes(lap - rec0['lap'])} off your best.") + self._sector_bits(vs_old), elapsed=et)
+                         f"{_say_lap(lap)}, {_dixiemes(lap - rec0['lap'])} off your best.", f"{_say_lap(lap)}, {_dixiemes(lap - rec0['lap'])} hinter deiner Bestzeit.") + self._sector_bits(vs_old), elapsed=et)
         elif s.session == "course" and self._lap_count % COMPARE_EVERY == 0:
             text = self.summary("ahead") or self.summary("behind")
             if text:
@@ -247,7 +251,7 @@ class LapTimes:
             q = _dixiemes(x)
             pl = "s" if q.endswith("s") else ""
             parts.append(tr(f"{q} {'gagné' if x < 0 else 'perdu'}{pl} au secteur {i + 1}",
-                            f"{q} {'gained' if x < 0 else 'lost'} in sector {i + 1}"))
+                            f"{q} {'gained' if x < 0 else 'lost'} in sector {i + 1}", f"{q} {'gewonnen' if x < 0 else 'verloren'} in Sektor {i + 1}"))
         return (" " + ", ".join(parts).capitalize() + ".") if parts else ""
 
     def _one(self, deltas: list | None, who: str) -> str | None:
@@ -259,15 +263,15 @@ class LapTimes:
         parts = []
         if deltas[lose] > 0.05:
             parts.append(tr(f"tu perds {_dixiemes(deltas[lose])} dans le secteur {lose + 1}",
-                            f"you lose {_dixiemes(deltas[lose])} in sector {lose + 1}"))
+                            f"you lose {_dixiemes(deltas[lose])} in sector {lose + 1}", f"du verlierst {_dixiemes(deltas[lose])} in Sektor {lose + 1}"))
         if deltas[gain] < -0.05:
             parts.append(tr(f"tu reprends {_dixiemes(deltas[gain])} dans le {gain + 1}",
-                            f"you gain {_dixiemes(deltas[gain])} in sector {gain + 1}"))
+                            f"you gain {_dixiemes(deltas[gain])} in sector {gain + 1}", f"du gewinnst {_dixiemes(deltas[gain])} in Sektor {gain + 1}"))
         if not parts:
-            return tr(f"Même rythme que {who}.", f"Same pace as {who}.")
+            return tr(f"Même rythme que {who}.", f"Same pace as {who}.", f"Gleiches Tempo wie dein {who}.")
         tot = tr(f"Au total {'tu gagnes' if total < 0 else 'tu perds'} {_dixiemes(total)} au tour.",
-                 f"Overall you {'gain' if total < 0 else 'lose'} {_dixiemes(total)} a lap.")
-        return tr(f"Sur {who}, ", f"Against {who}, ") + tr(" et ", " and ").join(parts) + ". " + tot
+                 f"Overall you {'gain' if total < 0 else 'lose'} {_dixiemes(total)} a lap.", f"Insgesamt {'gewinnst' if total < 0 else 'verlierst'} du {_dixiemes(total)} pro Runde.")
+        return tr(f"Sur {who}, ", f"Against {who}, ", f"Gegenüber deinem {who}: ") + tr(" et ", " and ", " und ").join(parts) + ". " + tot
 
     def summary(self, which: str = "both") -> str:
         L = self.last
@@ -275,11 +279,11 @@ class LapTimes:
             return ""
         out = []
         if which in ("both", "ahead"):
-            t = self._one(L.get("ahead"), tr("la voiture devant", "the car ahead"))
+            t = self._one(L.get("ahead"), tr("la voiture devant", "the car ahead", "Vordermann"))
             if t:
                 out.append(t)
         if which in ("both", "behind"):
-            t = self._one(L.get("behind"), tr("la voiture derrière", "the car behind"))
+            t = self._one(L.get("behind"), tr("la voiture derrière", "the car behind", "Hintermann"))
             if t:
                 out.append(t)
         return " ".join(out)
@@ -287,17 +291,17 @@ class LapTimes:
     def record_text(self, s: Snapshot) -> str:
         rec = self.record(s)
         if not rec:
-            return tr("Pas encore de record sur ce circuit dans cette catégorie.", "No record on this track in this class yet.")
+            return tr("Pas encore de record sur ce circuit dans cette catégorie.", "No record on this track in this class yet.", "Noch kein Rekord auf dieser Strecke in dieser Klasse.")
         out = tr(f"Ton record ici, c'est {_say_lap(rec['lap'])}, le {_say_date(rec['date'])}.",
-                 f"Your record here is {_say_lap(rec['lap'])}, set on {_say_date(rec['date'])}.")
+                 f"Your record here is {_say_lap(rec['lap'])}, set on {_say_date(rec['date'])}.", f"Dein Rekord hier ist {_say_lap(rec['lap'])}, gefahren am {_say_date(rec['date'])}.")
         if s.best_lap:
             d = s.best_lap - rec["lap"]
-            out += tr(" Tu es dessus aujourd'hui.", " You matched it today.") if abs(d) < 0.001 else \
-                tr(f" Aujourd'hui tu es à {_dixiemes(d)}.", f" Today you're {_dixiemes(d)} off.")
+            out += tr(" Tu es dessus aujourd'hui.", " You matched it today.", " Den hast du heute eingestellt.") if abs(d) < 0.001 else \
+                tr(f" Aujourd'hui tu es à {_dixiemes(d)}.", f" Today you're {_dixiemes(d)} off.", f" Heute fehlen dir {_dixiemes(d)}.")
         bs = rec.get("best_sectors")
         if bs:
             out += tr(f" Avec tes meilleurs secteurs, le tour idéal serait {_say_lap(sum(bs))}.",
-                      f" With your best sectors, the ideal lap would be {_say_lap(sum(bs))}.")
+                      f" With your best sectors, the ideal lap would be {_say_lap(sum(bs))}.", f" Mit deinen besten Sektoren wäre die Idealrunde {_say_lap(sum(bs))}.")
         return out
 
     def ui(self, s: Snapshot) -> dict:

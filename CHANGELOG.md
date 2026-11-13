@@ -1,5 +1,12 @@
 # Apex Radio — historique des versions / changelog
 
+## 1.2.12-de1 (Fork)
+- 🇩🇪 Deutsch: Funk, Spracherkennung, Dashboard und Handy-Ansicht. Deutsche Stimmen Thorsten und Kerstin (CC0).
+- 🇩🇪 Langstrecke: Stint und Fahrerwechsel, Mindestrunden pro Fahrer, Spritziel pro Stint, Reifenkontingent,
+  Verkehrsvorhersage (langsamere und schnellere Klassen, Vorder- und Hintermann), Boxenstopps der Klassengegner.
+- 🇬🇧 German language and an endurance pack (stints, driver changes, fuel target, tyre allocation, traffic forecast, class pit stops).
+- 🇫🇷 Allemand et module endurance (stints, relais, objectif carburant, allocation de pneus, prévision du trafic, arrêts des rivaux).
+
 ## 1.2.12
 - 🇫🇷 Ton de la radio au choix (⚙️ Réglages → Ingénieur) : Sobre (juste l'info), Radio d'équipe ou Détendu. L'ingénieur varie aussi beaucoup plus ses phrases pour moins se répéter.
 - 🇬🇧 Pick your radio tone (⚙️ Settings → Engineer): Plain (just the info), Team radio or Laid-back. The engineer also varies his phrases a lot more so he repeats himself less.

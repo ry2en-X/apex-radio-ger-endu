@@ -25,8 +25,8 @@ def set_tone(tone: str) -> None:
 _HIST: dict[str, deque] = {}
 
 
-def pick(key: str, opts: list[tuple[str, str]]) -> str:
-    """opts = [(fr, en), ...]. Évite de redire la ou les 2 dernières formulations de cette clé."""
+def pick(key: str, opts: list[tuple[str, ...]]) -> str:
+    """opts = [(fr, en), ...] ou [(fr, en, de), ...]. Évite de redire la ou les 2 dernières formulations de cette clé."""
     if not opts:
         return ""
     hist = _HIST.setdefault(key, deque(maxlen=max(1, min(2, len(opts) // 2))))
@@ -34,38 +34,38 @@ def pick(key: str, opts: list[tuple[str, str]]) -> str:
     i = random.choice(free)
     if len(opts) > 1:
         hist.append(i)
-    fr, en = opts[i]
-    return L(fr, en)
+    return L(*opts[i])
 
 
 # ------------------------------------------------------------------ habillage
 # Toujours terminés par un point : la phrase qui suit garde sa majuscule.
 _OPEN = {
     "radio": {
-        "info": [("Info radio.", "Radio check."), ("Écoute bien.", "Listen up."), ("OK, info.", "OK, info."),
-                 ("Du stand.", "From the pit wall."), ("Petite info.", "Quick one."), ("Pour info.", "Heads up.")],
-        "answer": [("Reçu.", "Copy."), ("Bien reçu.", "Copy that."), ("OK, je regarde.", "OK, checking."),
-                   ("Copie.", "Copied."), ("Je vérifie.", "Stand by."), ("Reçu, cinq sur cinq.", "Loud and clear.")],
+        "info": [("Info radio.", "Radio check.", "Funkcheck."), ("Écoute bien.", "Listen up.", "Hör zu."), ("OK, info.", "OK, info.", "OK, Info."),
+                 ("Du stand.", "From the pit wall.", "Von der Boxenmauer."), ("Petite info.", "Quick one.", "Kurze Info."), ("Pour info.", "Heads up.", "Zur Info.")],
+        "answer": [("Reçu.", "Copy.", "Verstanden."), ("Bien reçu.", "Copy that.", "Copy."), ("OK, je regarde.", "OK, checking.", "OK, ich schaue."),
+                   ("Copie.", "Copied.", "Kopiert."), ("Je vérifie.", "Stand by.", "Moment."), ("Reçu, cinq sur cinq.", "Loud and clear.", "Laut und deutlich.")],
     },
     "detente": {
-        "info": [("Alors.", "Right then."), ("Hé, petite info.", "Hey, quick one."), ("Dis donc.", "Hey."),
-                 ("Bon.", "So."), ("Tiens, au fait.", "Oh, by the way.")],
-        "answer": [("Alors, voyons.", "Let's see."), ("Ah, bonne question.", "Good question."), ("OK.", "OK."),
-                   ("Attends, je regarde.", "Hang on, checking."), ("Pas de souci.", "No worries.")],
+        "info": [("Alors.", "Right then.", "Also."), ("Hé, petite info.", "Hey, quick one.", "Hey, kurze Info."), ("Dis donc.", "Hey.", "Hey."),
+                 ("Bon.", "So.", "So."), ("Tiens, au fait.", "Oh, by the way.", "Ach, übrigens.")],
+        "answer": [("Alors, voyons.", "Let's see.", "Mal sehen."), ("Ah, bonne question.", "Good question.", "Gute Frage."), ("OK.", "OK.", "OK."),
+                   ("Attends, je regarde.", "Hang on, checking.", "Moment, ich schaue."), ("Pas de souci.", "No worries.", "Kein Problem.")],
     },
 }
 _CLOSE = {
-    "radio": [("À toi.", "Over."), ("On reste concentrés.", "Stay focused."), ("Bien reçu ?", "Copy?"),
-              ("On continue comme ça.", "Keep it going."), ("Je surveille.", "I'm watching it.")],
-    "detente": [("Tranquille.", "Easy."), ("On gère.", "We've got this."), ("Pas de stress.", "No stress."),
-                ("Tu assures.", "You're doing great.")],
+    "radio": [("À toi.", "Over.", "Over."), ("On reste concentrés.", "Stay focused.", "Konzentriert bleiben."), ("Bien reçu ?", "Copy?", "Verstanden?"),
+              ("On continue comme ça.", "Keep it going.", "Weiter so."), ("Je surveille.", "I'm watching it.", "Ich behalte das im Auge.")],
+    "detente": [("Tranquille.", "Easy.", "Locker."), ("On gère.", "We've got this.", "Wir haben das im Griff."), ("Pas de stress.", "No stress.", "Kein Stress."),
+                ("Tu assures.", "You're doing great.", "Du machst das super.")],
 }
 # chances d'ajouter une ouverture / une fin, selon le ton
 _RATE = {"radio": (0.35, 0.2), "detente": (0.4, 0.25)}
 
 # réponses qui accusent déjà réception : on n'en rajoute pas
 _ALREADY = ("c'est noté", "ok", "reçu", "bien reçu", "compris", "je n'ai", "je t'entends", "radio", "mode silence",
-            "spotter", "box", "noted", "copy", "got it", "understood", "i didn't", "i hear")
+            "spotter", "box", "noted", "copy", "got it", "understood", "i didn't", "i hear",
+            "verstanden", "notiert", "alles klar", "ich habe nichts", "ich höre", "funk")
 
 
 def dress(text: str, answer: bool = False, urgent: bool = False) -> str:
