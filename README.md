@@ -28,21 +28,31 @@ nach der Installation kein Internet nötig.
   „Hole ich auf den Vordermann auf?“, „Keine Reparatur und wechsel nur die Vorderreifen“, „Ruhe“ / „Sprich wieder“, „Wiederhol“ …
 - **Dashboard und Handy-Ansicht auf Deutsch**: Sprach-Taste oben schaltet FR → EN → DE. Bei deutschem Windows startet die App direkt auf Deutsch.
 
-### Langstrecke (neu)
-Neue Karte **Langstrecke** im Dashboard, Einstellungen unter ⚙️ → **Langstrecke**:
-- **Stint und Fahrerwechsel**: Stint X von Y, Runden und Minuten im Stint, Ansage „Fahrerwechsel am Ende dieses Stints“
-  (nach *Stints pro Fahrer*, z. B. 2 = Doppelstint) und Mindestrunden pro Fahrer (z. B. 16,7 % der Distanz).
-- **Spritziel**: Ziel-Runden pro Stint (z. B. 31) → Zielverbrauch pro Runde, was du ab jetzt brauchst, wie viel % du sparen musst.
-  Klappt mit virtueller Energie (%) und mit Sprit (Liter).
-- **Reifenkontingent**: zählt die Reifen für Qualy + Rennen selbst mit (z. B. 26 = 6 Sätze + 2 Einzelreifen),
-  Runden auf dem aktuellen Satz und ob die Sätze bis ins Ziel reichen.
-- **Verkehr vorausberechnet**: nächster langsamerer Pulk (z. B. „3 GT3, 7 Sekunden vor dir, du holst sie in etwa 60 Sekunden ein, etwa in Kurve 5“),
-  nächste schnellere Klasse von hinten, und für die eigene Klasse: wann du den Vordermann einholst bzw. der Hintermann dich,
-  jeweils mit „vor / nach deinem nächsten Stopp“. Gerechnet mit dem tatsächlichen Rundentempo jedes Autos.
-- **Klasse**: Abstände und Anzahl der Boxenstopps der direkten Gegner im Vergleich zu deinen.
+### Rennen und Langstrecke (neu)
+Alles steht auf **automatisch** (0 = auto): Die Stintlänge kommt aus dem gemessenen Verbrauch. Das passt damit für jedes Rennen,
+vom 20-Minuten-Sprint bis 24 Stunden, für Hypercar und LMGT3 (virtuelle Energie) genauso wie für LMP2 / LMP3 (Sprit).
+In Sprints ohne Stopp bleibt das Modul still. Neue Karte **Langstrecke** im Dashboard, Einstellungen unter ⚙️ → **Langstrecke**.
 
-Fragen per Funk: „Wie ist der Stint?“, „Wann ist Fahrerwechsel?“, „Wie viel muss ich sparen?“ / „Spritziel?“,
-„Wie viele Reifen habe ich noch?“, „Wann kommt der nächste Verkehr?“ / „Wann hole ich die GT3 ein?“, „Wie stehen wir in der Klasse?“.
+- **Rennrunden**: wie viele Runden dein Auto schon gefahren hat. Der Wert kommt direkt aus dem Spiel und stimmt deshalb auch
+  nach einem Fahrerwechsel oder wenn du Apex mitten im Rennen startest. Dazu Runden des Führenden und die geschätzte Gesamtzahl.
+- **Stint und Fahrerwechsel**: Stint X von Y, Runden und Minuten im Stint, deine Fahrzeit, Ansage vor dem Fahrerwechsel.
+  Beim Reinkommen gibt es eine **Stint-Bilanz** (Runden, Schnitt, beste Runde, Verbrauch) für die Übergabe.
+- **Energie- und Spritziel**: Zielverbrauch pro Runde für die geplante Stintlänge. Per Funk setzbar: „Ziel 32 Runden“ / „Ziel auto“.
+- **Ein Stopp weniger?** Apex rechnet aus, ob ihr mit höchstens 8 % Sparen einen ganzen Boxenstopp spart, und sagt wie viel.
+- **Hypercar / LMGT3**: Warnung, bevor die virtuelle Energie leer ist (sonst 100 Sekunden Stop-and-Go), und Hinweis,
+  wenn die Hybrid-Batterie vor dem Stopp fast leer ist.
+- **Nach dem Stopp**: Apex misst, wie viel Zeit ein Stopp auf der Strecke kostet, und sagt vorher, auf welchem Platz du rauskommst,
+  mit welchen Abständen und ob du im Verkehr landest.
+- **Full Course Yellow**: Ansage, ob du im Boxenfenster bist oder draußen bleiben sollst.
+- **Reifen**: Runden auf dem Satz, Tempoverlust des Satzes, optional Reifenkontingent (z. B. 26 = 6 Sätze + 2 Einzelreifen).
+- **Verkehr vorausberechnet**: nächster langsamerer Pulk (wie viele, wie weit weg, wann und in welcher Kurve du ihn einholst),
+  schnellere Klasse von hinten, und wann du den Vordermann einholst bzw. der Hintermann dich („vor / nach deinem Stopp“).
+- **Klasse**: Abstände, Rundenrückstand und Boxenstopps der Gegner (aus dem Spiel gelesen).
+- **Zwischenstände**: Halbzeit, jede volle Reststunde, letzte 30 und 10 Minuten, jeweils mit Platz und Stopps.
+
+Fragen per Funk: „Wie viele Runden sind wir gefahren?“, „Wie ist der Stint?“, „Wie war der letzte Stint?“, „Wie viel muss ich sparen?“,
+„Wo komme ich nach dem Stopp raus?“, „Wie viele Reifen habe ich noch?“, „Bauen die Reifen ab?“, „Wann kommt der nächste Verkehr?“,
+„Wie stehen wir in der Klasse?“.
 
 ### Installation
 Wie im Original (siehe unten), nur das Installationsprogramm aus den **Releases dieses Forks** nehmen.

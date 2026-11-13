@@ -1,5 +1,14 @@
 # Apex Radio — historique des versions / changelog
 
+## 1.2.12-de2 (Fork)
+- 🇩🇪 Alles automatisch für jedes Rennen (Sprint bis 24 h, Hypercar, LMGT3, LMP2): Stintlänge aus dem Verbrauch.
+- 🇩🇪 Neu: Rennrunden des Autos (aus dem Spiel, auch nach Fahrerwechsel), Stint-Bilanz, „ein Stopp weniger“-Rechner,
+  Warnung vor leerer virtueller Energie und leerer Batterie, Zeitverlust pro Stopp und Platz nach dem Stopp,
+  Boxenfenster unter Gelb, Tempoverlust der Reifen, Zwischenstände, Ziel per Funk („Ziel 32 Runden“).
+- 🇩🇪 Entfernt: Mindestrunden pro Fahrer.
+- 🇬🇧 Automatic for any race; car laps read from the game, stint report, one-stop-fewer calculator, energy and battery warnings,
+  pit loss and rejoin position, yellow-flag pit window, tyre pace loss, progress calls. Removed the per-driver minimum.
+
 ## 1.2.12-de1 (Fork)
 - 🇩🇪 Deutsch: Funk, Spracherkennung, Dashboard und Handy-Ansicht. Deutsche Stimmen Thorsten und Kerstin (CC0).
 - 🇩🇪 Langstrecke: Stint und Fahrerwechsel, Mindestrunden pro Fahrer, Spritziel pro Stint, Reifenkontingent,

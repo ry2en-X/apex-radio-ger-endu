@@ -1,38 +1,46 @@
 """
-Langstrecke / endurance : ce qui compte sur 6, 8, 12 ou 24 heures.
+Langstrecke / endurance : ce qui compte en course, du sprint de 20 minutes aux 24 heures.
 
-- Stints et relais : n° de stint, tours dans le stint, temps de stint, changement de pilote prévu, minimum de tours par pilote.
-- Objectif carburant / énergie : consommation cible par tour pour tenir X tours, écart au tour, ce qu'il faut à partir de maintenant.
-- Pneus : jeux restants sur l'allocation (qualif + course), tours sur le train actuel, assez de pneus pour finir ?
-- Écarts de catégorie : arrêts faits par les rivaux de ta catégorie, écart et nombre d'arrêts comparés aux tiens.
-- Trafic à venir : prochain groupe de voitures plus lentes (combien, à quelle distance, dans combien de temps tu les rattrapes,
-  à quel virage), prochaine catégorie plus rapide qui va te prendre un tour, et projection sur la voiture devant / derrière
-  dans ta catégorie (quand tu la rattrapes, ou quand elle te rattrape, avant ou après ton prochain arrêt).
+Tout se règle tout seul (0 = automatique) : la longueur de stint vient de la consommation mesurée, donc ça marche
+pour n'importe quelle voiture (Hypercar et LMGT3 : énergie virtuelle ; LMP2 / LMP3 : essence), circuit et durée.
+En sprint sans arrêt, le module se tait.
 
-Réglages (config.json, clé "endurance") modifiables depuis le tableau de bord. Tout est calculé à partir des données
-du jeu ; rien n'est envoyé nulle part.
+- Tours de course : tours faits par TA voiture (lus dans le jeu, donc justes même après un relais ou si Apex est lancé
+  en cours de course), tours du leader, tours restants estimés.
+- Stints et relais : n° de stint, tours et temps dans le stint, changement de pilote, bilan du stint à l'arrêt.
+- Objectif carburant / énergie : cible par tour pour tenir X tours ; « un arrêt de moins si tu économises x % ».
+- Énergie virtuelle : alerte avant 0 % (pénalité de 100 s), batterie hybride trop basse avant l'arrêt.
+- Arrêt : temps perdu au stand mesuré, et où tu ressors (place, écarts, trafic).
+- Drapeau jaune : dans la fenêtre d'arrêt ou pas.
+- Pneus : allocation (0 = illimitée), tours sur le train, perte de rythme du train.
+- Catégorie : écarts, tours de retard, arrêts des rivaux (lus dans le jeu).
+- Trafic : groupe plus lent devant, catégorie plus rapide derrière, voiture devant / derrière de ta catégorie.
+- Points d'étape : mi-course, heures restantes, fin de course.
 """
 from __future__ import annotations
 
 import math
+import re
 import statistics
 import time
 
 from i18n import L, dec
 
 DEFAULTS = {
-    "stint_laps": 31,          # tours par stint visés
-    "stints_per_driver": 2,    # stints d'affilée par pilote (2 = double relais)
-    "min_share": 16.7,         # % minimum de la distance par pilote (0 = pas de minimum)
-    "tyres_total": 26,         # pneus pour qualif + course (6 trains + 2 pneus seuls = 26)
+    "stint_laps": 0,           # tours par stint (0 = automatique, d'après la consommation)
+    "stints_per_driver": 0,    # stints d'affilée par pilote (0 = pas de changement de pilote)
+    "tyres_total": 0,          # pneus pour qualif + course (0 = pas de limite)
     "tyres_used": 0,           # pneus déjà montés (compté tout seul, corrigeable)
     "stints_per_set": 2,       # stints par train de pneus (double relais pneus)
-    "fuel_target_laps": 0,     # 0 = même valeur que stint_laps
+    "fuel_target_laps": 0,     # objectif de tours par stint (0 = automatique)
     "fuel_reserve": 0.5,       # % (énergie) ou litres gardés en réserve à l'arrivée au stand
-    "traffic_calls": True,     # annonces anticipées du trafic (en plus des annonces à 8–25 s)
+    "pit_loss_s": 0,           # temps perdu par arrêt en s (0 = mesuré tout seul)
+    "traffic_calls": True,     # annonces anticipées du trafic
     "traffic_ahead_s": 60,     # prévenir quand on rattrape un groupe plus lent dans ~60 s
     "fuel_calls": True,        # annonces de l'objectif carburant pendant le stint
+    "progress_calls": True,    # points d'étape (mi-course, heures restantes)
 }
+PIT_LOSS_DEFAULT = 65.0        # s, tant qu'aucun arrêt n'a été mesuré sur ce circuit
 
 FUEL_EVERY = 4                 # au plus une annonce carburant tous les 4 tours (sauf dérive nette)
 GROUP_GAP = 4.0                # s : voitures à moins de 4 s les unes des autres = un même groupe
@@ -45,6 +53,11 @@ def _f(v: float, d: int = 1) -> str:
 def _cls(c: str) -> str:
     from alerts import class_name
     return class_name(c or "")
+
+
+def _lt(t: float) -> str:
+    m, r = divmod(t, 60)
+    return dec(f"{int(m)}:{r:04.1f}")
 
 
 def _laps_word(n: float) -> str:
@@ -62,6 +75,8 @@ class Endurance:
         e = cfg.setdefault("endurance", {})
         for k, v in DEFAULTS.items():
             e.setdefault(k, v)
+        e.pop("min_share", None)
+        e.setdefault("pit_loss", {})
         self._reset_session()
         Endurance.LAST = self
 
@@ -83,11 +98,40 @@ class Endurance:
                 self.c[key] = max(0, self.c[key])
         self.save(self.cfg)
 
-    def target_laps(self) -> int:
-        return int(self.c.get("fuel_target_laps") or self.c.get("stint_laps") or 0)
+    @staticmethod
+    def full_stint(s, plan) -> float | None:
+        """Tours possibles avec un plein (essence et énergie), d'après la consommation mesurée."""
+        if not plan or not plan.fuel_per_lap:
+            return None
+        f = s.fuel_capacity / plan.fuel_per_lap if s.fuel_capacity else math.inf
+        e = 1.0 / plan.energy_per_lap if (plan.energy_per_lap and s.energy is not None) else math.inf
+        v = min(f, e)
+        return v if v < 500 else None
+
+    def stint_len(self, s, plan) -> int | None:
+        n = int(self.c.get("stint_laps") or 0)
+        if n:
+            return n
+        full = self.full_stint(s, plan)
+        return max(1, math.floor(full - 0.2)) if full else None
+
+    def target_laps(self, s=None, plan=None) -> int:
+        n = int(self.c.get("fuel_target_laps") or 0)
+        if n or s is None:
+            return n or int(self.c.get("stint_laps") or 0)
+        return self.stint_len(s, plan) or 0
+
+    def pit_loss(self, s) -> tuple[float, bool]:
+        """(secondes perdues par arrêt, mesuré ?)"""
+        manual = float(self.c.get("pit_loss_s") or 0)
+        if manual:
+            return manual, True
+        m = (self.c.get("pit_loss") or {}).get(s.track)
+        return (float(m), True) if m else (PIT_LOSS_DEFAULT, False)
 
     # ------------------------------------------------------------------ état
     def _reset_session(self) -> None:
+        self._plan = None
         self.key = None
         self.last_lap = None            # laps_done au dernier passage
         self.stint_no = 1
@@ -111,6 +155,15 @@ class Endurance:
         self.last_traffic = -999.0
         self.said_keys: set = set()
         self.info: dict = {}
+        self.stint_times: list[float] = []   # tours propres du stint
+        self.set_times: list[tuple] = []     # (âge du train, temps) tours propres sur ce train de pneus
+        self.stints: list[dict] = []         # bilans des stints terminés
+        self.pit_in = None                   # (elapsed, lap_frac) à l'entrée des stands
+        self.was_yellow = False
+        self.race_total = None               # durée totale de la course (s)
+        self.prev_left = None
+        self.drive_t0 = None
+        self.deg_said = False
 
     # ------------------------------------------------------------------ boucle
     def update(self, s, plan, say) -> None:
@@ -131,6 +184,7 @@ class Endurance:
                 self.c["tyre_track"] = s.track
                 self.save(self.cfg)
         now = s.elapsed
+        self._plan = plan
         self._first_set(s)
         self._pits(s, plan, say)
         if self.last_lap is not None and s.laps_done > self.last_lap:
@@ -141,8 +195,15 @@ class Endurance:
             self.lap_dirty = True
         self._track_cars(s, now)
         self._rivals(s)
-        if s.session == "course" and not s.in_pits:
-            self._traffic_calls(s, plan, say)
+        if s.driver != self.cur_driver:
+            self.cur_driver, self.drive_t0 = s.driver, s.elapsed
+        if s.session == "course":
+            self._progress(s, plan, say)
+            self._yellow(s, plan, say)
+            if not s.in_pits:
+                self._critical(s, plan, say)
+                self._traffic_calls(s, plan, say)
+        self.was_yellow = s.yellow
         self.info = self._ui(s, plan)
 
     # ------------------------------------------------------------------ carburant / énergie
@@ -157,12 +218,17 @@ class Endurance:
     def _unit(s) -> str:
         return "%" if s.energy is not None else L(" litre", " L", " Liter")
 
-    def fuel_state(self, s) -> dict | None:
-        tgt = self.target_laps()
+    def fuel_state(self, s, plan=None) -> dict | None:
+        plan = plan if plan is not None else self._plan
+        manual = bool(int(self.c.get("fuel_target_laps") or 0) or int(self.c.get("stint_laps") or 0))
+        tgt = self.target_laps(s, plan)
         cur = self._amount(s)
         if not tgt or cur is None or self.stint_amount0 is None:
             return None
         done = s.laps_done - self.stint_lap0
+        if s.session == "course" and plan and plan.laps_to_finish is not None:
+            if plan.stops_needed == 0 and (not manual or plan.laps_to_finish < tgt - done):
+                return None      # dernier relais ou sprint sans arrêt : la stratégie gère l'essence jusqu'à l'arrivée
         left = max(1, tgt - done)
         reserve = float(self.c.get("fuel_reserve") or 0)
         target = max(0.0, self.stint_amount0 - reserve) / tgt
@@ -171,10 +237,12 @@ class Endurance:
         avg = statistics.mean(self.lap_use[-3:]) if self.lap_use else None
         reach = (max(0.0, cur - reserve) / avg + done) if avg else None
         return {"target": target, "need": need, "last": last, "avg": avg, "laps": tgt, "done": done,
-                "reach": reach, "unit": "%" if s.energy is not None else "L", "energy": s.energy is not None}
+                "reach": reach, "unit": "%" if s.energy is not None else "L", "energy": s.energy is not None,
+                "auto": not manual}
 
     def _lap_done(self, s, plan, say) -> None:
         cur = self._amount(s)
+        dirty = self.lap_dirty
         if cur is not None and self.prev_amount is not None and not self.lap_dirty:
             used = self.prev_amount - cur
             if 0 < used < 30:
@@ -182,26 +250,31 @@ class Endurance:
                 self.lap_use = self.lap_use[-8:]
         self.prev_amount = cur
         self.lap_dirty = False
+        clean = not dirty and not s.yellow and s.wetness < 0.05 and s.last_lap and 20 < s.last_lap < 900
         self.tyre_age = [a + 1 for a in self.tyre_age]
+        if clean:
+            self.stint_times.append(s.last_lap)
+            self.set_times.append((max(self.tyre_age), s.last_lap))
         d = self.drivers.setdefault(s.driver or "?", {"laps": 0, "time": 0.0})
         d["laps"] += 1
         if s.last_lap:
             d["time"] += s.last_lap
         if s.session == "course":
             self._fuel_call(s, plan, say)
-            self._min_share_call(s, plan, say)
+            self._stop_saver_call(s, plan, say)
+            self._deg_call(s, say)
             self._stint_end_call(s, plan, say)
 
     def _fuel_call(self, s, plan, say) -> None:
         if not self.c.get("fuel_calls"):
             return
-        fs = self.fuel_state(s)
+        fs = self.fuel_state(s, plan)
         if not fs or fs["last"] is None or fs["done"] < 2 or fs["done"] >= fs["laps"]:
             return
-        if plan and plan.stops_needed == 0 and plan.laps_to_finish is not None and plan.laps_to_finish < fs["laps"] - fs["done"]:
-            return   # dernier relais plus court : la stratégie s'en occupe
         over = fs["last"] - fs["need"]
         drift = over > 0.04 * max(fs["need"], 0.01)
+        if fs["auto"] and not drift:
+            return   # objectif automatique : on ne parle que si le stint prévu ne passe plus
         if not drift and s.laps_done - self.fuel_said_lap < FUEL_EVERY:
             return
         if drift and s.laps_done - self.fuel_said_lap < 2:
@@ -227,6 +300,9 @@ class Endurance:
             self.wear_out = list(s.tyre_wear)
         if s.in_pits and not self.was_in_pits:
             self.wear_before = self.wear_out
+            self.pit_in = (s.elapsed, s.lap_frac)
+            if s.session == "course":
+                self._stint_close(s, plan, say)
         if self.was_in_pits and not s.in_pits:
             # sortie des stands : nouveau stint (en course), pneus changés ?
             changed = []
@@ -237,7 +313,11 @@ class Endurance:
                 self.save(self.cfg)
                 for i in changed:
                     self.tyre_age[i] = 0
+                if len(changed) >= 2:
+                    self.set_times, self.deg_said = [], False
             if s.session == "course":
+                self._measure_loss(s, plan)
+                self.stint_times = []
                 self.stint_no = (s.pit_stops or self.stint_no) + 1
                 self.stint_lap0, self.stint_t0 = s.laps_done, s.elapsed
                 self.stint_amount0 = self._amount(s)
@@ -247,8 +327,9 @@ class Endurance:
                 self._stint_start_call(s, plan, say, changed)
             elif changed:
                 left = self.tyres_left()
-                say(None, L(f"{len(changed)} pneus neufs. Il en reste {left}.", f"{len(changed)} new tyres. {left} left.",
-                            f"{len(changed)} neue Reifen. Noch {left} übrig."))
+                if left is not None:
+                    say(None, L(f"{len(changed)} pneus neufs. Il en reste {left}.", f"{len(changed)} new tyres. {left} left.",
+                                f"{len(changed)} neue Reifen. Noch {left} übrig."))
         self.was_in_pits = s.in_pits
 
     def _first_set(self, s) -> None:
@@ -260,15 +341,15 @@ class Endurance:
             self.c["tyres_used"] = int(self.c.get("tyres_used") or 0) + 4
             self.save(self.cfg)
 
-    def tyres_left(self) -> int:
+    def tyres_left(self) -> int | None:
+        if not int(self.c.get("tyres_total") or 0):
+            return None
         return max(0, int(self.c.get("tyres_total") or 0) - int(self.c.get("tyres_used") or 0))
 
     def total_stints(self, s, plan) -> int | None:
-        sl = int(self.c.get("stint_laps") or 0)
-        if not sl or not plan or plan.laps_to_finish is None:
+        if not plan or plan.stops_needed is None:
             return None
-        total_laps = s.laps_done + plan.laps_to_finish
-        return max(1, math.ceil(total_laps / sl))
+        return self.stint_no + plan.stops_needed
 
     def change_after(self, stint: int) -> bool:
         k = int(self.c.get("stints_per_driver") or 0)
@@ -276,16 +357,20 @@ class Endurance:
 
     def _stint_start_call(self, s, plan, say, changed) -> None:
         n = self.stint_no
-        tot = self.total_stints(s, plan)
+        tot = None
         parts = [L(f"Stint {n}" + (f" sur {tot}" if tot else "") + ".", f"Stint {n}" + (f" of {tot}" if tot else "") + ".",
                    f"Stint {n}" + (f" von {tot}" if tot else "") + ".")]
-        if changed:
-            left = self.tyres_left()
+        left = self.tyres_left()
+        if changed and left is not None:
             parts.append(L(f"{len(changed)} pneus neufs, il en reste {left}.", f"{len(changed)} new tyres, {left} left.",
                            f"{len(changed)} neue Reifen, noch {left} übrig."))
-        tgt = self.target_laps()
-        fs = self.fuel_state(s)
-        if tgt and fs:
+        elif not changed and s.pit_stops:
+            age = max(self.tyre_age)
+            parts.append(L(f"Pneus gardés, {age} tours dessus.", f"Tyres kept, {age} laps on them.",
+                           f"Reifen bleiben drauf, {age} Runden alt."))
+        fs = self.fuel_state(s, plan)
+        tgt = fs["laps"] if fs else 0
+        if tgt and fs and not fs["auto"]:
             un = " %" if fs["energy"] else L(" litre", " litres", " Liter")
             parts.append(L(f"Objectif {tgt} tours : {_f(fs['target'], 2)}{un} par tour.",
                            f"Target {tgt} laps: {_f(fs['target'], 2)}{un} a lap.",
@@ -293,7 +378,8 @@ class Endurance:
         if self.change_after(n) and (tot is None or n < tot):
             parts.append(L("Changement de pilote à la fin de ce stint.", "Driver change at the end of this stint.",
                            "Fahrerwechsel am Ende dieses Stints."))
-        say(None, " ".join(parts))
+        if len(parts) > 1:
+            say(None, " ".join(parts))
 
     def _stint_end_call(self, s, plan, say) -> None:
         if not plan or plan.laps_until_box is None or plan.stops_needed in (None, 0):
@@ -306,27 +392,14 @@ class Endurance:
                             "Driver change at this next stop, get ready for the swap.",
                             "Fahrerwechsel beim nächsten Stopp, bereite die Übergabe vor."))
 
-    def _min_share_call(self, s, plan, say) -> None:
-        share = float(self.c.get("min_share") or 0)
-        if not share or not plan or plan.laps_to_finish is None:
-            return
-        total = s.laps_done + plan.laps_to_finish
-        need = math.ceil(total * share / 100)
-        d = self.drivers.get(s.driver or "?")
-        if d and d["laps"] == need:
-            k = f"min:{s.driver}"
-            if k not in self.said_keys:
-                self.said_keys.add(k)
-                say(None, L(f"{need} tours pour toi : ton minimum de pilotage est atteint.",
-                            f"{need} laps for you: your minimum driving distance is done.",
-                            f"{need} Runden für dich: deine Mindestfahrzeit ist erreicht."))
-
     # ------------------------------------------------------------------ rivaux de catégorie : arrêts
     def _rivals(self, s) -> None:
         for r in s.rivals or []:
-            k = r.get("name") or str(r.get("place"))
+            k = r.get("name") or f"#{r.get('cpos') or r.get('place')}"
             st = self.rival_stops.setdefault(k, {"stops": 0, "in": bool(r.get("in_pits"))})
-            if r.get("in_pits") and not st["in"]:
+            if r.get("stops") is not None:
+                st["stops"] = int(r["stops"])          # lu dans le jeu
+            elif r.get("in_pits") and not st["in"]:
                 st["stops"] += 1
             st["in"] = bool(r.get("in_pits"))
 
@@ -522,7 +595,7 @@ class Endurance:
             return L("Les stints, c'est pour la course.", "Stints only count in the race.", "Stints gibt es nur im Rennen.")
         done = s.laps_done - self.stint_lap0
         mins = (s.elapsed - self.stint_t0) / 60
-        tgt = int(self.c.get("stint_laps") or 0)
+        tgt = self.stint_len(s, plan) or 0
         tot = self.total_stints(s, plan)
         out = L(f"Stint {self.stint_no}" + (f" sur {tot}" if tot else "") + f", {done} tours en {mins:.0f} minutes.",
                 f"Stint {self.stint_no}" + (f" of {tot}" if tot else "") + f", {done} laps in {mins:.0f} minutes.",
@@ -541,30 +614,35 @@ class Endurance:
             else:
                 out += " " + L(f"Changement de pilote après le stint {nxt}.", f"Driver change after stint {nxt}.",
                                f"Fahrerwechsel nach Stint {nxt}.")
-        share = float(self.c.get("min_share") or 0)
-        d = self.drivers.get(s.driver or "?")
-        if share and plan and plan.laps_to_finish is not None and d:
-            need = math.ceil((s.laps_done + plan.laps_to_finish) * share / 100)
-            out += " " + (L(f"Minimum pilote atteint : {d['laps']} tours sur {need}.",
-                            f"Driver minimum done: {d['laps']} of {need} laps.",
-                            f"Mindestrunden erfüllt: {d['laps']} von {need}.") if d["laps"] >= need else
-                          L(f"Tu as {d['laps']} tours, il t'en faut au moins {need}.",
-                            f"You have {d['laps']} laps, you need at least {need}.",
-                            f"Du hast {d['laps']} Runden, du brauchst mindestens {need}."))
+        if self.drive_t0 is not None and s.elapsed - self.drive_t0 > 600:
+            m = int((s.elapsed - self.drive_t0) // 60)
+            hm = f"{m // 60}:{m % 60:02d}"
+            out += " " + L(f"Tu roules depuis {hm}.", f"You've been driving for {hm}.", f"Du fährst seit {hm} Stunden.")
         return out
 
-    def answer_fuel_target(self, s, plan) -> str:
-        fs = self.fuel_state(s)
+    def answer_fuel_target(self, s, plan, t: str = "") -> str:
+        m = re.search(r"\b(\d{1,2}) ?(runden|laps|tours)\b", t)
+        head = ""
+        if m and re.search(r"ziel|target|objectif|stint", t):
+            self.set("fuel_target_laps", int(m.group(1)))
+            head = L(f"Objectif réglé sur {m.group(1)} tours. ", f"Target set to {m.group(1)} laps. ", f"Ziel auf {m.group(1)} Runden gesetzt. ")
+        elif re.search(r"(ziel|target|objectif).*\bauto", t):
+            self.set("fuel_target_laps", 0)
+            head = L("Objectif automatique. ", "Target back to automatic. ", "Ziel wieder automatisch. ")
+        fs = self.fuel_state(s, plan)
         if not fs:
-            return L("Règle d'abord l'objectif de tours par stint dans le tableau de bord.",
-                     "Set the target laps per stint in the dashboard first.",
-                     "Stell zuerst im Dashboard die Ziel-Runden pro Stint ein.")
+            sv = self.stop_saver(s, plan)
+            if sv:
+                return head + self._saver_text(sv)
+            return head + L("Pas d'objectif d'économie pour ce relais : tu as ce qu'il faut. Dis par exemple « objectif 32 tours » pour en fixer un.",
+                            "No saving target for this stint: you have what you need. Say \"target 32 laps\" to set one.",
+                            "Kein Sparziel für diesen Stint: Du hast, was du brauchst. Sag zum Beispiel „Ziel 32 Runden“, um eins zu setzen.")
         un = " %" if fs["energy"] else L(" litre", " litres", " Liter")
         if fs["done"] >= fs["laps"]:
             return L(f"Objectif de {fs['laps']} tours déjà atteint : {fs['done']} tours dans ce stint.",
                      f"{fs['laps']}-lap target already reached: {fs['done']} laps this stint.",
                      f"Ziel von {fs['laps']} Runden schon erreicht: {fs['done']} Runden in diesem Stint.")
-        out = L(f"Pour {fs['laps']} tours : {_f(fs['target'], 2)}{un} par tour sur le stint, {_f(fs['need'], 2)}{un} à partir de maintenant.",
+        out = head + L(f"Pour {fs['laps']} tours : {_f(fs['target'], 2)}{un} par tour sur le stint, {_f(fs['need'], 2)}{un} à partir de maintenant.",
                 f"For {fs['laps']} laps: {_f(fs['target'], 2)}{un} a lap over the stint, {_f(fs['need'], 2)}{un} from now on.",
                 f"Für {fs['laps']} Runden: {_f(fs['target'], 2)}{un} pro Runde im Stint, ab jetzt {_f(fs['need'], 2)}{un}.")
         if fs["avg"] is not None:
@@ -581,21 +659,28 @@ class Endurance:
             if fs["reach"]:
                 out += " " + L(f"À ce rythme, {_f(fs['reach'], 1)} tours.", f"At this rate, {_f(fs['reach'], 1)} laps.",
                                f"So reicht es für {_f(fs['reach'], 1)} Runden.")
+        sv = self.stop_saver(s, plan)
+        if sv:
+            out += " " + self._saver_text(sv)
         return out
 
     def answer_tyres(self, s, plan) -> str:
         left = self.tyres_left()
-        sets, single = divmod(left, 4)
-        out = L(f"Il reste {left} pneus : {sets} trains", f"{left} tyres left: {sets} sets", f"Noch {left} Reifen: {sets} Sätze")
-        if single:
-            out += L(f" et {single} pneus seuls.", f" and {single} single tyres.", f" und {single} Einzelreifen.")
-        else:
-            out += "."
+        sets, single = divmod(left or 0, 4)
+        out = ""
+        if left is not None:
+            out = L(f"Il reste {left} pneus : {sets} trains", f"{left} tyres left: {sets} sets", f"Noch {left} Reifen: {sets} Sätze")
+            out += (L(f" et {single} pneus seuls.", f" and {single} single tyres.", f" und {single} Einzelreifen.") if single else ".") + " "
         age = max(self.tyre_age) if self.tyre_age else 0
-        out += " " + L(f"Le train actuel a {age} tours.", f"Current set has {age} laps on it.", f"Der aktuelle Satz hat {age} Runden drauf.")
+        out += L(f"Le train actuel a {age} tours.", f"Current set has {age} laps on it.", f"Der aktuelle Satz hat {age} Runden drauf.")
         tot = self.total_stints(s, plan) if s.session == "course" else None
         per = int(self.c.get("stints_per_set") or 0)
-        if tot and per:
+        dg = self.deg()
+        if dg is not None:
+            out += " " + (L(f"Le train a perdu {_f(dg)} s au tour depuis qu'il est neuf.", f"This set has lost {_f(dg)} s a lap since new.",
+                            f"Der Satz ist {_f(dg)} s pro Runde langsamer als frisch.") if dg > 0.2 else
+                          L("Le rythme tient sur ce train.", "Pace is holding on this set.", "Das Tempo hält auf diesem Satz."))
+        if tot and per and left is not None:
             remaining_stints = max(0, tot - self.stint_no)
             need_sets = math.ceil(remaining_stints / per)
             if need_sets <= sets:
@@ -613,47 +698,303 @@ class Endurance:
         me = s.class_position or s.position
         mine = s.pit_stops or 0
         out = [L(f"Tu es P{me} dans ta catégorie, {mine} arrêts.", f"You're P{me} in class, {mine} stops.",
-                 f"Du bist P{me} in der Klasse, {mine} Stopps.")]
+                 f"Du bist P{me} in der Klasse, {mine} Stopp{'s' if mine != 1 else ''}.")]
         near = sorted((r for r in s.rivals if r.get("cpos") and abs(r["cpos"] - me) <= 2 or r.get("cpos") == 1),
                       key=lambda r: r["cpos"])
         for r in near[:4]:
-            k = r.get("name") or str(r.get("place"))
+            k = r.get("name") or f"#{r.get('cpos') or r.get('place')}"
             st = self.rival_stops.get(k, {}).get("stops")
             g = r.get("gap")
+            dl = (r.get("laps") or 0) - s.laps_done
             where = (L(f"{_f(abs(g))} s devant", f"{_f(abs(g))} s ahead", f"{_f(abs(g))} s vorne") if g and g > 0 else
                      L(f"{_f(abs(g))} s derrière", f"{_f(abs(g))} s behind", f"{_f(abs(g))} s hinten") if g else
+                     L(f"{abs(dl)} {_laps_word(dl)} devant", f"{abs(dl)} {_laps_word(dl)} ahead", f"{abs(dl)} {_laps_word(dl)} vor dir") if dl > 0 else
+                     L(f"{abs(dl)} {_laps_word(dl)} derrière", f"{abs(dl)} {_laps_word(dl)} behind", f"{abs(dl)} {_laps_word(dl)} zurück") if dl < 0 else
                      L("pas dans le même tour", "not on the same lap", "nicht in derselben Runde"))
             stops = ""
             if st is not None:
                 d = st - mine
-                stops = (L(f", {st} arrêts comme toi", f", {st} stops like you", f", {st} Stopps wie du") if d == 0 else
-                         L(f", {st} arrêts ({d:+d})", f", {st} stops ({d:+d})", f", {st} Stopps ({d:+d})"))
+                stops = (L(f", {st} arrêts comme toi", f", {st} stops like you", f", {st} Stopp{'s' if st != 1 else ''} wie du") if d == 0 else
+                         L(f", {st} arrêts ({d:+d})", f", {st} stops ({d:+d})", f", {st} Stopp{'s' if st != 1 else ''} ({d:+d})"))
             pit = L(", aux stands", ", in the pits", ", in der Box") if r.get("in_pits") else ""
             out.append(f"P{r['cpos']} {where}{stops}{pit}.")
         return " ".join(out)
 
+    # ------------------------------------------------------------------ un arrêt de moins ?
+    def stop_saver(self, s, plan) -> dict | None:
+        """Peut-on supprimer un arrêt en économisant un peu (8 % au plus) sur tous les relais restants ?"""
+        full = self.full_stint(s, plan)
+        if (s.session != "course" or not plan or not plan.ready or not full or not plan.stops_needed
+                or plan.range_laps is None or plan.laps_to_finish is None):
+            return None
+        denom = plan.range_laps + (plan.stops_needed - 1) * full
+        if denom <= 0:
+            return None
+        x = plan.laps_to_finish / denom - 1
+        if not (0.002 < x <= 0.08):
+            return None
+        return {"pct": x * 100, "laps": math.ceil(full * (1 + x)), "now": math.floor(full), "stops": plan.stops_needed - 1}
+
+    @staticmethod
+    def _saver_text(sv) -> str:
+        p, n, k = f"{sv['pct']:.0f}", sv["laps"], sv["stops"]
+        if k == 0:
+            return L(f"On peut aller au bout sans autre arrêt : économise environ {p} % par tour.",
+                     f"We can make it without another stop: save about {p} % a lap.",
+                     f"Wir kommen ohne weiteren Stopp durch: Spar etwa {p} % pro Runde.")
+        return L(f"Un arrêt de moins est possible : économise environ {p} % par tour, soit {n} tours par stint, et on fait {k} arrêt{'s' if k > 1 else ''} au lieu de {k + 1}.",
+                 f"One stop fewer is possible: save about {p} % a lap, {n} laps per stint, and we do {k} stop{'s' if k != 1 else ''} instead of {k + 1}.",
+                 f"Ein Stopp weniger ist möglich: Spar etwa {p} % pro Runde, also {n} Runden pro Stint, dann brauchen wir {k} statt {k + 1} Stopps.")
+
+    def _stop_saver_call(self, s, plan, say) -> None:
+        if s.in_pits or s.laps_done - self.stint_lap0 < 3 or int(self.c.get("fuel_target_laps") or 0):
+            return
+        k = f"sav:{self.stint_no}"
+        sv = self.stop_saver(s, plan)
+        if sv and k not in self.said_keys:
+            self.said_keys.add(k)
+            say(None, self._saver_text(sv) + L(" Dis « objectif " + str(sv["laps"]) + " tours » si tu veux que je te guide.",
+                                               f" Say \"target {sv['laps']} laps\" and I'll guide you.",
+                                               f" Sag „Ziel {sv['laps']} Runden“, dann führe ich dich."))
+
+    # ------------------------------------------------------------------ pneus : perte de rythme du train
+    def deg(self) -> float | None:
+        t = [x for x in self.set_times if x[0] >= 2]
+        if len(t) < 8:
+            return None
+        return statistics.median(x[1] for x in t[-3:]) - statistics.median(x[1] for x in t[:3])
+
+    def _deg_call(self, s, say) -> None:
+        d = self.deg()
+        if d is not None and d > 0.7 and not self.deg_said:
+            self.deg_said = True
+            age = max(self.tyre_age)
+            say(None, L(f"Les pneus baissent : {_f(d)} seconde au tour de perdu depuis qu'ils sont neufs, {age} tours dessus.",
+                        f"Tyres are dropping off: {_f(d)} s a lap slower than when new, {age} laps on them.",
+                        f"Die Reifen bauen ab: {_f(d)} Sekunden pro Runde langsamer als frisch, {age} Runden drauf."))
+
+    # ------------------------------------------------------------------ bilan de stint, temps perdu au stand
+    def _stint_close(self, s, plan, say) -> None:
+        laps = s.laps_done - self.stint_lap0
+        if laps < 2 or (self.stints and self.stints[-1]["n"] == self.stint_no):
+            return
+        ts = self.stint_times
+        rec = {"n": self.stint_no, "laps": laps, "avg": statistics.median(ts) if ts else None, "best": min(ts) if ts else None,
+               "use": statistics.mean(self.lap_use) if self.lap_use else None, "unit": "%" if s.energy is not None else "L",
+               "driver": s.driver, "min": round((s.elapsed - self.stint_t0) / 60, 1), "tyre_age": max(self.tyre_age)}
+        self.stints = (self.stints + [rec])[-12:]
+        say(None, self.stint_text(rec))
+
+    @staticmethod
+    def stint_text(r) -> str:
+        out = L(f"Stint {r['n']} terminé : {r['laps']} tours", f"Stint {r['n']} done: {r['laps']} laps", f"Stint {r['n']} vorbei: {r['laps']} Runden")
+        if r["avg"]:
+            out += L(f", moyenne {_lt(r['avg'])}, meilleur {_lt(r['best'])}", f", average {_lt(r['avg'])}, best {_lt(r['best'])}",
+                     f", Schnitt {_lt(r['avg'])}, beste {_lt(r['best'])}")
+        if r["use"]:
+            u = " %" if r["unit"] == "%" else L(" litre", " litres", " Liter")
+            out += L(f", conso {_f(r['use'], 2)}{u} par tour", f", {_f(r['use'], 2)}{u} a lap", f", Verbrauch {_f(r['use'], 2)}{u} pro Runde")
+        return out + "."
+
+    def _measure_loss(self, s, plan) -> None:
+        if not self.pit_in:
+            return
+        t0, f0 = self.pit_in
+        self.pit_in = None
+        avg = (plan.avg_lap if plan else None) or s.best_lap
+        lane = s.elapsed - t0
+        if not avg or not (15 < lane < 400):
+            return
+        loss = lane - ((s.lap_frac - f0) % 1) * avg + 2.0
+        if 10 < loss < 300:
+            self.c.setdefault("pit_loss", {})[s.track] = round(loss, 1)
+            self.save(self.cfg)
+
+    # ------------------------------------------------------------------ où tu ressors après l'arrêt
+    def rejoin(self, s, plan) -> dict | None:
+        if s.session != "course" or not s.rivals:
+            return None
+        loss, measured = self.pit_loss(s)
+        cpos = s.class_position or s.position
+        behind = sorted((-r["gap"], r.get("cpos")) for r in s.rivals if r.get("gap") is not None and r["gap"] < 0 and not r.get("in_pits"))
+        lost = [b for b in behind if b[0] < loss]
+        keep = [b for b in behind if b[0] >= loss]
+        out = {"loss": loss, "measured": measured, "pos": cpos + len(lost), "lost": len(lost),
+               "ahead": {"gap": loss - lost[-1][0]} if lost else None,
+               "behind": {"gap": keep[0][0] - loss} if keep else None, "traffic": 0}
+        me, mine, _ = self._paces(s, plan)
+        if me and mine:
+            where = loss % mine
+            for c in s.cars:
+                if c.get("me") or c.get("pits") or c["c"] == me["c"]:
+                    continue
+                bt = ((me["f"] - c["f"]) % 1) * mine
+                if where - 6 <= bt <= where + 3:
+                    out["traffic"] += 1
+        return out
+
+    @staticmethod
+    def rejoin_text(r) -> str:
+        head = "" if r["measured"] else L(f"Estimation avec {r['loss']:.0f} secondes perdues au stand : ",
+                                          f"Estimate with {r['loss']:.0f} seconds lost in the pits: ",
+                                          f"Geschätzt mit {r['loss']:.0f} Sekunden Zeitverlust: ")
+        out = head + L(f"après l'arrêt tu ressors environ P{r['pos']} de ta catégorie", f"after the stop you rejoin around P{r['pos']} in class",
+                       f"nach dem Stopp kommst du etwa auf P{r['pos']} in der Klasse raus")
+        if r["ahead"]:
+            out += L(f", {r['ahead']['gap']:.0f} secondes derrière P{r['pos'] - 1}", f", {r['ahead']['gap']:.0f} seconds behind P{r['pos'] - 1}",
+                     f", {r['ahead']['gap']:.0f} Sekunden hinter P{r['pos'] - 1}")
+        if r["behind"]:
+            out += L(f", P{r['pos'] + 1} à {r['behind']['gap']:.0f} secondes derrière", f", P{r['pos'] + 1} {r['behind']['gap']:.0f} seconds behind you",
+                     f", P{r['pos'] + 1} ist {r['behind']['gap']:.0f} Sekunden dahinter")
+        out += ". " + (L("Piste libre à la sortie.", "Clear track at pit exit.", "Freie Strecke an der Boxenausfahrt.") if not r["traffic"] else
+                       L(f"Tu ressors dans le trafic, {r['traffic']} voitures d'autres catégories autour de toi.",
+                         f"You rejoin in traffic, {r['traffic']} cars from other classes around you.",
+                         f"Du kommst im Verkehr raus, {r['traffic']} Autos anderer Klassen um dich herum."))
+        return out[:1].upper() + out[1:]
+
+    # ------------------------------------------------------------------ alertes : énergie, batterie, sortie des stands
+    def _critical(self, s, plan, say) -> None:
+        if not plan or not plan.ready:
+            return
+        st = self.stint_no
+        if (plan.stops_needed and plan.range_laps is not None and plan.laps_to_finish is not None
+                and plan.laps_to_finish > plan.range_laps and s.lap_frac > 0.5 and plan.range_laps < (1 - s.lap_frac) + 1.0 and f"crit:{st}" not in self.said_keys):
+            self.said_keys.add(f"crit:{st}")
+            if plan.limited_by == "énergie":
+                say(None, L("Énergie : pas assez pour un tour de plus. Box ce tour, sinon c'est la pénalité de 100 secondes.",
+                            "Energy: not enough for another lap. Box this lap, or it's the 100-second penalty.",
+                            "Energie reicht nicht für eine weitere Runde. Box diese Runde, sonst gibt es die 100-Sekunden-Strafe."), urgent=True)
+            else:
+                say(None, L("Essence : pas assez pour un tour de plus. Box ce tour.", "Fuel: not enough for another lap. Box this lap.",
+                            "Sprit reicht nicht für eine weitere Runde. Box diese Runde."), urgent=True)
+        box_soon = bool(plan.stops_needed) and plan.laps_until_box is not None and plan.laps_until_box <= 1
+        if box_soon and s.battery is not None and s.battery < 0.12 and s.lap_frac > 0.4 and f"bat:{st}" not in self.said_keys:
+            self.said_keys.add(f"bat:{st}")
+            say(None, L(f"Batterie à {s.battery * 100:.0f} %. Recharge-la avant l'entrée des stands pour bien repartir.",
+                        f"Battery at {s.battery * 100:.0f} %. Charge it before pit entry so you can pull away.",
+                        f"Batterie bei {s.battery * 100:.0f} %. Lade sie vor der Boxeneinfahrt, damit du gut wegkommst."))
+        if box_soon and 0.15 < s.lap_frac < 0.6 and f"rej:{st}" not in self.said_keys:
+            self.said_keys.add(f"rej:{st}")
+            r = self.rejoin(s, plan)
+            if r:
+                say(None, self.rejoin_text(r))
+
+    def _yellow(self, s, plan, say) -> None:
+        if not s.yellow or self.was_yellow or not plan or not plan.stops_needed or s.in_pits:
+            return
+        sl = self.stint_len(s, plan)
+        done = s.laps_done - self.stint_lap0
+        if (sl and done >= 0.5 * sl) or (plan.laps_until_box is not None and plan.laps_until_box <= 5):
+            say(None, L("Sous drapeau jaune, un arrêt coûte moins cher et tu es dans la fenêtre : rentre si la voie des stands est ouverte.",
+                        "Under yellow a stop costs less and you're in the window: box if the pit lane is open.",
+                        "Unter Gelb kostet ein Stopp weniger Zeit und du bist im Boxenfenster: Komm rein, wenn die Boxengasse offen ist."))
+        else:
+            say(None, L("Trop tôt pour s'arrêter sous ce drapeau jaune, reste en piste.", "Too early to stop under this yellow, stay out.",
+                        "Zu früh für einen Stopp unter Gelb, bleib draußen."))
+
+    # ------------------------------------------------------------------ points d'étape
+    def _status(self, s, plan) -> str:
+        cp, st = s.class_position or s.position, s.pit_stops or 0
+        n = plan.stops_needed if plan and plan.stops_needed else 0
+        out = L(f"P{cp} dans ta catégorie, {st} arrêt{'s' if st > 1 else ''} fait{'s' if st > 1 else ''}",
+                f"P{cp} in class, {st} stop{'s' if st != 1 else ''} done", f"P{cp} in der Klasse, {st} Stopp{'s' if st != 1 else ''} gemacht")
+        if n:
+            out += L(f", encore {n} prévu{'s' if n > 1 else ''}", f", {n} more planned", f", noch {n} geplant")
+        return out + "."
+
+    def _progress(self, s, plan, say) -> None:
+        if s.time_left is None:
+            return
+        total = s.elapsed + s.time_left
+        self.race_total = max(self.race_total or 0, total)
+        total = self.race_total
+        prev, self.prev_left = self.prev_left, s.time_left
+        if prev is None or not self.c.get("progress_calls") or not (0 < prev - s.time_left < 30):
+            return
+        marks = []
+        half = total / 2 if total >= 2400 else None
+        if half:
+            marks.append((half, L("Mi-course.", "Halfway.", "Halbzeit.")))
+        for h in range(1, int(total // 3600) + 1):
+            if h * 3600 < total - 600 and not (half and abs(h * 3600 - half) < 300):
+                marks.append((h * 3600, L(f"Encore {h} heure{'s' if h > 1 else ''}.", f"{h} hour{'s' if h > 1 else ''} to go.",
+                                          f"Noch {h} Stunde{'n' if h > 1 else ''}.")))
+        if total >= 5400:
+            marks.append((1800, L("Encore 30 minutes.", "30 minutes to go.", "Noch 30 Minuten.")))
+        if total >= 1800:
+            marks.append((600, L("Encore 10 minutes.", "10 minutes to go.", "Noch 10 Minuten.")))
+        for m, label in marks:
+            if prev > m >= s.time_left:
+                say(None, f"{label} {self._status(s, plan)}")
+                return
+
+    # ------------------------------------------------------------------ tours de course
+    def race_laps(self, s, plan) -> dict:
+        leader = next((c for c in s.cars or [] if c.get("p") == 1), None)
+        cl = next((r for r in s.rivals or [] if r.get("cpos") == 1), None)
+        return {"mine": s.laps_done, "leader": leader.get("laps") if leader else None,
+                "class_leader": cl.get("laps") if cl else s.laps_done,
+                "to_go": plan.laps_to_finish if plan else None, "max": s.max_laps}
+
+    def answer_laps(self, s, plan) -> str:
+        r = self.race_laps(s, plan)
+        out = L(f"Ta voiture a fait {r['mine']} tours.", f"Your car has done {r['mine']} laps.", f"Dein Auto hat {r['mine']} Runden gefahren.")
+        if r["leader"] is not None and r["leader"] != r["mine"]:
+            out += " " + L(f"Le leader en est à {r['leader']}.", f"The overall leader is on {r['leader']}.", f"Der Gesamtführende hat {r['leader']}.")
+        if r["class_leader"] is not None and r["class_leader"] != r["mine"]:
+            out += " " + L(f"Le premier de ta catégorie : {r['class_leader']}.", f"Your class leader: {r['class_leader']}.",
+                           f"Der Klassenführende hat {r['class_leader']}.")
+        if r["max"]:
+            out += " " + L(f"Course de {r['max']} tours.", f"It's a {r['max']}-lap race.", f"Das Rennen geht über {r['max']} Runden.")
+        elif r["to_go"]:
+            n = round(r["to_go"])
+            out += " " + L(f"Encore environ {n} tours, soit {r['mine'] + n} au total.", f"About {n} to go, so around {r['mine'] + n} in total.",
+                           f"Noch etwa {n} Runden, also rund {r['mine'] + n} insgesamt.")
+        return out
+
+    def answer_rejoin(self, s, plan) -> str:
+        r = self.rejoin(s, plan)
+        if not r:
+            return L("Pas d'autre voiture de ta catégorie pour estimer ta sortie des stands.", "No class rivals to estimate your pit exit against.",
+                     "Keine Klassengegner, um deine Boxenausfahrt einzuschätzen.")
+        return self.rejoin_text(r) + " " + L(f"Un arrêt coûte environ {r['loss']:.0f} secondes ici.", f"A stop costs about {r['loss']:.0f} seconds here.",
+                                             f"Ein Stopp kostet hier etwa {r['loss']:.0f} Sekunden.")
+
+    def answer_last_stint(self, s, plan) -> str:
+        if not self.stints:
+            return L("Aucun stint terminé pour l'instant.", "No stint finished yet.", "Noch kein Stint beendet.")
+        return " ".join(self.stint_text(r) for r in self.stints[-2:])
+
     # ------------------------------------------------------------------ tableau de bord
     def _ui(self, s, plan) -> dict:
-        fs = self.fuel_state(s) if s.on_track else None
+        race = s.session == "course"
+        fs = self.fuel_state(s, plan) if s.on_track else None
         try:
             tr = self.traffic(s, plan) if s.on_track else {}
         except Exception:
             tr = {}
-        d = self.drivers.get(s.driver or "?")
-        share = float(self.c.get("min_share") or 0)
-        need = math.ceil((s.laps_done + plan.laps_to_finish) * share / 100) if (share and plan and plan.laps_to_finish is not None) else None
         tl = self.tyres_left()
         strip = lambda g: {k: v for k, v in g.items() if k != "ids"} if g else None
+        loss, measured = self.pit_loss(s)
         return {
             "cfg": {k: self.c.get(k) for k in DEFAULTS},
-            "stint": self.stint_no if s.session == "course" else None,
-            "stints_total": self.total_stints(s, plan) if s.session == "course" else None,
+            "stint": self.stint_no if race else None,
+            "stints_total": self.total_stints(s, plan) if race else None,
             "stint_laps": s.laps_done - self.stint_lap0, "stint_min": round((s.elapsed - self.stint_t0) / 60, 1),
+            "stint_len": self.stint_len(s, plan),
             "change_after": self.change_after(self.stint_no),
-            "driver": s.driver, "driver_laps": d["laps"] if d else 0, "driver_min": need,
-            "fuel": fs, "tyres_left": tl, "tyre_sets": tl // 4, "tyre_singles": tl % 4,
-            "tyre_age": max(self.tyre_age) if self.tyre_age else 0,
+            "driver": s.driver, "drive_min": round((s.elapsed - self.drive_t0) / 60) if self.drive_t0 is not None else None,
+            "fuel": fs, "saver": self.stop_saver(s, plan) if race else None,
+            "range": plan.range_laps if plan else None, "limited": (plan.limited_by if plan else "") == "énergie",
+            "battery": s.battery,
+            "tyres_left": tl, "tyre_sets": (tl or 0) // 4, "tyre_singles": (tl or 0) % 4,
+            "tyre_age": max(self.tyre_age) if self.tyre_age else 0, "deg": self.deg(),
             "traffic": {k: strip(v) for k, v in tr.items()} if tr else {},
+            "laps": self.race_laps(s, plan) if race else None,
+            "rejoin": self.rejoin(s, plan) if race and plan and plan.stops_needed else None,
+            "pit_loss": loss, "pit_loss_measured": measured,
+            "stints": self.stints[-5:],
+            "race_frac": (1 - s.time_left / self.race_total) if (race and self.race_total and s.time_left is not None) else None,
         }
 
     def ui(self) -> dict:

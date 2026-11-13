@@ -72,6 +72,8 @@ def energy(s: Snapshot, p: Plan) -> str:
     if p.energy_per_lap:
         out += L(f" {_f(p.energy_per_lap * 100)} % par tour, soit {_f(s.energy / p.energy_per_lap)} tours.",
                  f" {_f(p.energy_per_lap * 100)} % a lap, so {_f(s.energy / p.energy_per_lap)} laps.", f" {_f(p.energy_per_lap * 100)} % pro Runde, also {_f(s.energy / p.energy_per_lap)} Runden.")
+    if getattr(s, "battery", None) is not None:
+        out += L(f" Batterie à {_f(s.battery * 100, 0)} %.", f" Battery at {_f(s.battery * 100, 0)} %.", f" Batterie bei {_f(s.battery * 100, 0)} %.")
     return out
 
 
@@ -411,20 +413,26 @@ def _endu(fn_name: str):
         if ENDURANCE is None:
             return L("Le module endurance n'est pas prêt.", "The endurance module isn't ready.", "Das Langstrecken-Modul ist nicht bereit.")
         f = getattr(ENDURANCE, fn_name)
-        return f(s, p, LAST_TEXT) if fn_name == "answer_traffic" else f(s, p)
+        return f(s, p, LAST_TEXT) if fn_name in ("answer_traffic", "answer_fuel_target") else f(s, p)
     fn.__name__ = fn_name
     return fn
 
 
 stint_info, fuel_target, tyre_sets, traffic_info, class_info = (
     _endu("answer_stint"), _endu("answer_fuel_target"), _endu("answer_tyres"), _endu("answer_traffic"), _endu("answer_class"))
+race_laps, rejoin_info, last_stint = _endu("answer_laps"), _endu("answer_rejoin"), _endu("answer_last_stint")
 
 TOPICS[:0] = [
-    (r"\bstint|relais|fahrerwechsel|driver (change|swap)|changement de pilote|mindestrunden|mindestfahrzeit|"
-     r"minimum (de )?(tours|pilotage)|driver minimum", stint_info),
-    (r"spritziel|sparziel|verbrauchsziel|zielverbrauch|wie ?viel (muss ich )?sparen|energieziel|"
+    (r"(letzte[rn]?|vorige[rn]?|last|previous|dernier|precedent) (stint|relais)|stint ?(zusammenfassung|bilanz|summary)|bilan du (stint|relais)", last_stint),
+    (r"(runden|laps|tours).*(gefahren|absolviert|geschafft|completed|done so far|parcourus|boucles)|rennrunden|"
+     r"(gefahren|absolviert).*runden|laps (has|have) (the|our|my) car|tours (a|as) (t on|tu|la voiture) fait", race_laps),
+    (r"wo komm\w* (ich|wir) (wieder )?raus|nach dem stopp|boxenausfahrt|rejoin|where (do|will) (i|we) come out|after the stop|"
+     r"ou (est ce que )?je ressors|apres l arret|zeitverlust|pit loss|was kostet (ein|der) stopp|temps perdu", rejoin_info),
+    (r"\bstint|relais|fahrerwechsel|driver (change|swap)|changement de pilote|fahrzeit|drive time", stint_info),
+    (r"spritziel|sparziel|verbrauchsziel|zielverbrauch|wie ?viel (muss ich )?sparen|energieziel|stopp (weniger|sparen)|"
+     r"(ziel|target|objectif) (auf )?(\d{1,2}|auto)|"
      r"objectif (carbu|essence|conso|energie)|combien (dois je )?economiser|fuel target|target (fuel|consumption)|how much (do i )?save", fuel_target),
-    (r"reifensatz|reifensatze|\bsatze\b|wie ?viele reifen|reifen (ubrig|noch)|einzelreifen|tyre sets|sets left|how many tyres|"
+    (r"reifenabbau|bauen (die reifen )?ab|degradation|degradent|reifensatz|reifensatze|\bsatze\b|wie ?viele reifen|reifen (ubrig|noch)|einzelreifen|tyre sets|sets left|how many tyres|"
      r"trains? de pneus|combien de pneus|pneus restants", tyre_sets),
     (r"verkehr|traffic|trafic|\bgt3|hypercar|\blmp ?[23]|\bgte\b|uberrund|einhol|wann hole ich|lapping|lapped|catch (him|them|up)|"
      r"rattrap|quand je (le|la|les) (rattrape|double)", traffic_info),

@@ -47,6 +47,7 @@ class Snapshot:
     fuel: float = 0.0                # litres
     fuel_capacity: float = 0.0
     energy: float | None = None      # énergie virtuelle 0..1 (Hypercar / LMGT3), None si absente
+    battery: float | None = None     # charge de la batterie hybride 0..1 (Hypercar hybride), None si absente
     tyre_wear: list = field(default_factory=lambda: [1.0] * 4)   # 1.0 = neuf
     tyre_temp: list = field(default_factory=lambda: [0.0] * 4)   # °C (couche intérieure de la gomme)
     tyre_surface_temp: list = field(default_factory=lambda: [0.0] * 4)   # °C (surface, varie très vite)
@@ -274,7 +275,7 @@ class LMUSource:
             return g if g > 0 else None
 
         def other(v):
-            return {"name": _txt(v.mDriverName), "car": _txt(v.mVehicleName), "laps": v.mTotalLaps, "place": v.mPlace,
+            return {"name": _txt(v.mDriverName), "car": _txt(v.mVehicleName), "laps": v.mTotalLaps, "place": v.mPlace, "stops": v.mNumPitstops,
                     "last_lap": v.mLastLapTime if v.mLastLapTime > 0 else None,
                     "sectors": split_sectors(v.mLastSector1, v.mLastSector2, v.mLastLapTime),
                     "in_pits": bool(v.mInPits)}
@@ -317,6 +318,7 @@ class LMUSource:
                 "me": bool(v.mIsPlayer), "pits": bool(v.mInPits),
                 "rel": "ahead" if v.mID == ahead_id else "behind" if v.mID == behind_id else "",
                 "best": v.mBestLapTime if v.mBestLapTime > 0 else None, "name": _txt(v.mDriverName),
+                "laps": v.mTotalLaps, "stops": v.mNumPitstops,
             })
         s.session_code = info.mSession
         s.track_len = info.mLapDist
@@ -338,6 +340,10 @@ class LMUSource:
         s.fuel = tel.mFuel
         s.fuel_capacity = tel.mFuelCapacity
         s.energy = tel.mVirtualEnergy if tel.mVirtualEnergy > 0 else None
+        try:
+            s.battery = float(tel.mBatteryChargeFraction) if tel.mElectricBoostMotorState else None
+        except Exception:
+            s.battery = None
 
         w = tel.mWheels
         s.tyre_wear = [w[i].mWear for i in range(4)]
@@ -564,6 +570,7 @@ class DemoSource:
         s.gap_ahead, s.gap_behind = self.gap_ahead, 2.1
         s.fuel, s.fuel_capacity = max(0.0, self.fuel), 90.0
         s.energy = max(0.0, self.energy)
+        s.battery = 0.35 + 0.3 * math.sin(et / 7)
         s.tyre_wear = [max(0.0, w) for w in self.wear]
         s.tyre_temp = [86, 88, 82, 83] if not rain else [70, 71, 68, 68]
         warm = min(1.0, et / 90)        # démo : pneus et freins froids au départ, chauds au bout d'1 min 30
@@ -584,7 +591,7 @@ class DemoSource:
         mx, mz = demo_track(my_total % 1)
         s.cars = [{"x": mx, "z": mz, "f": my_total % 1, "s": min(2, int((my_total % 1) * 3)), "c": 0,
                    "cls": "Hypercar", "p": self.pos, "me": True, "pits": s.in_pits, "rel": "", "id": 1, "spd": 60, "off": False,
-                   "best": self.best_lap, "name": "Toi"}]
+                   "best": self.best_lap, "name": "Toi", "laps": self.laps, "stops": self.stops}]
         hyper = sorted([o for o in self.others if o[0] == "Hypercar"], key=lambda o: -o[1])
         for i, (cls, off, spd) in enumerate(self.others):
             tot = (et / self.LAP) * spd + off
@@ -596,7 +603,8 @@ class DemoSource:
             s.cars.append({"x": x, "z": z, "f": f, "s": min(2, int(f * 3)), "c": 0 if cls == "Hypercar" else 1,
                            "cls": cls, "p": i + 1, "me": False, "pits": False, "rel": rel,
                            "id": 100 + i, "spd": 8 if off else 60, "off": off,
-                           "best": self.LAP if cls == "Hypercar" else self.LAP * 1.1, "name": f"Pilote {i + 1}"})
+                           "best": self.LAP if cls == "Hypercar" else self.LAP * 1.1, "name": f"Pilote {i + 1}",
+                           "laps": int(tot), "stops": 0})
         # démo : données pour les alertes
         s.session_code, s.track_len, s.driver = 10, 5200.0, "Toi"
         s.tl_per_penalty = 4
